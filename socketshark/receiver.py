@@ -27,9 +27,10 @@ class ServiceReceiver:
         return self.redis_channel_prefix + name
 
     async def reader(self):
+        prefix_length = len(self.redis_channel_prefix)
         while (await self.redis_receiver.wait_message()):
             channel, msg = await self.redis_receiver.get()
-            subscription = channel.name.decode()[len(self.redis_channel_prefix):]
+            subscription = channel.name.decode()[prefix_length:]
             try:
                 data = json.loads(msg.decode())
                 for session in self.confirmed_subscriptions[subscription]:

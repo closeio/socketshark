@@ -1,5 +1,3 @@
-import aioredis
-from aioredis.pubsub import Receiver
 import asyncio
 import json
 
@@ -35,8 +33,7 @@ def run(shark):
     config = shark.config
     loop = asyncio.get_event_loop()
     loop.run_until_complete(shark.prepare())
-    start_server = websockets.serve(serve, config['WS_HOST'],
-            config['WS_PORT'])
+    start_server = websockets.serve(serve, config['WS_HOST'], config['WS_PORT'])
     loop.run_until_complete(start_server)
     loop.run_until_complete(shark.run_service_receiver())
     loop.run_forever()

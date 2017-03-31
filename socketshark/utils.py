@@ -17,7 +17,7 @@ async def http_post(shark, url, data):
                 await asyncio.sleep(opts['wait'])
             try:
                 async with session.post(url, json=data,
-                        timeout=opts['timeout']) as resp:
+                                        timeout=opts['timeout']) as resp:
                     print('RETURN', await resp.text())
                     return await resp.json()
             except aiohttp.ClientError:

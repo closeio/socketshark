@@ -19,7 +19,7 @@ class SocketShark:
             redis_settings['host'], redis_settings['port']))
 
         self.service_receiver = ServiceReceiver(self.config, self.redis,
-                redis_receiver)
+                                                redis_receiver)
 
     async def run_service_receiver(self):
         await self.service_receiver.reader()
@@ -36,7 +36,8 @@ def load_config(config_name):
 
 def load_backend(config):
     backend_name = config.get('BACKEND', 'websockets')
-    return importlib.import_module('socketshark.backend.{}'.format(backend_name))
+    backend_module = 'socketshark.backend.{}'.format(backend_name)
+    return importlib.import_module(backend_module)
 
 
 @click.command()

@@ -1,0 +1,10 @@
+machine:
+  python:
+    version: 3.5.2
+  services:
+    - redis
+
+test:
+  pre:
+    - pip install flake8 flake8-import-order pep8-naming
+    - flake8

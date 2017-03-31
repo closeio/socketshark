@@ -10,7 +10,7 @@ class EventError(Exception):
 
 class Event:
     @classmethod
-    def from_data(self, session, data):
+    def from_data(cls, session, data):
         event = data.get('event')
 
         cls = {
@@ -113,13 +113,13 @@ class SubscriptionEvent(Event):
         """
         Returns a data dict to be sent to the service handler.
         """
-        data = { 'subscription': self.subscription }
+        data = {'subscription': self.subscription}
         data.update(self.extra_data)
         data.update(self.session.auth_info)
         return data
 
     async def perform_service_request(self, service_event, extra_data={},
-            error_message=None):
+                                      error_message=None):
         if service_event in self.service_config:
             url = self.service_config[service_event]
             data = self.prepare_service_data()
@@ -127,7 +127,7 @@ class SubscriptionEvent(Event):
             result = await http_post(self.shark, url, data)
             if result.get('status') != 'ok':
                 raise EventError(result.get('error', error_message or
-                    'Unhandled exception.'))
+                                            'Unhandled exception.'))
             return result
         return {'status': 'ok'}
 
@@ -135,7 +135,7 @@ class SubscriptionEvent(Event):
 class SubscribeEvent(SubscriptionEvent):
     async def authorize_subscription(self):
         await self.perform_service_request('authorizer',
-                error_message='Unauthorized.')
+                                           error_message='Unauthorized.')
 
     async def before_subscribe(self):
         return await self.perform_service_request('before_subscribe')
@@ -145,7 +145,8 @@ class SubscribeEvent(SubscriptionEvent):
 
     async def process(self):
         require_authentication = self.service_config.get(
-                'require_authentication', True)
+            'require_authentication', True)
+
         if require_authentication and not self.session.auth_info:
             raise EventError('Authentication required.')
 
@@ -187,7 +188,6 @@ class UnsubscribeEvent(SubscriptionEvent):
         await self.shark.service_receiver.delete_subscription(
             self.session, self.subscription)
         await self.send_ok(result.get('data'))
-
 
         await self.on_unsubscribe()
 

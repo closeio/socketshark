@@ -3,6 +3,7 @@ from setuptools import setup
 install_requires = [
     'aiohttp',
     'aioredis',
+    'websockets',
     #'structlog'
 ]
 
@@ -39,4 +40,3 @@ setup(
         ],
     },
 )
-

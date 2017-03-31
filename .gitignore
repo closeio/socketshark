@@ -1,6 +1,7 @@
 *.pyc
 .DS_Store
 build/
+.cache/
 dist/
 *.egg-info/
 .tox/

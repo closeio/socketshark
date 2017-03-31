@@ -52,14 +52,14 @@ SERVICES = {
         # from this service. When an error is returned, the subscription or
         # unsubscription command fails.
         "before_subscribe": 'http://my-service/subscribe/',
-        "before_unsubscribe": 'http://my-service/unsubscribe/'
+        "before_unsubscribe": 'http://my-service/unsubscribe/',
 
         # Optional URL which is called after subscribing to or unsubscribing
         # from this service.
         "on_subscribe": 'http://my-service/on_subscribe/',
-        "on_unsubscribe": 'http://my-service/on_unsubscribe/'
+        "on_unsubscribe": 'http://my-service/on_unsubscribe/',
 
         # URL which is called when a message is passed to this service.
-        "on_message": 'http://my-service/on_message/'
+        "on_message": 'http://my-service/on_message/',
     },
 }
