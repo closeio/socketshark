@@ -3,12 +3,12 @@ from setuptools import setup
 install_requires = [
     'aiohttp',
     'aioredis',
+    'click',
     'websockets',
-    #'structlog'
 ]
 
 tests_require = install_requires + [
-    #'pytest',
+    'pytest',
 ]
 
 setup(
@@ -17,8 +17,8 @@ setup(
     url='http://github.com/closeio/socketshark',
     license='MIT',
     description='WebSocket message router',
-    #test_suite='tests',
-    #tests_require=tests_require,
+    test_suite='tests',
+    tests_require=tests_require,
     platforms='any',
     install_requires=install_requires,
     classifiers=[
