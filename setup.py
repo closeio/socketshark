@@ -1,0 +1,42 @@
+from setuptools import setup
+
+install_requires = [
+    'aiohttp',
+    'aioredis',
+    #'structlog'
+]
+
+tests_require = install_requires + [
+    #'pytest',
+]
+
+setup(
+    name='socketshark',
+    version='0.0',
+    url='http://github.com/closeio/socketshark',
+    license='MIT',
+    description='WebSocket message router',
+    #test_suite='tests',
+    #tests_require=tests_require,
+    platforms='any',
+    install_requires=install_requires,
+    classifiers=[
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: MIT License',
+        'Operating System :: OS Independent',
+        'Topic :: Software Development :: Libraries :: Python Modules',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+    ],
+    packages=[
+        'socketshark',
+    ],
+    entry_points={
+        'console_scripts': [
+            'socketshark = socketshark:run',
+        ],
+    },
+)
+
