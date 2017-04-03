@@ -38,7 +38,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'socketshark = socketshark:run',
+            'socketshark = socketshark.__main__:run',
         ],
     },
 )
