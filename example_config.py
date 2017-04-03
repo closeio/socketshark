@@ -1,6 +1,13 @@
 # Which WebSocket backend to use. Currently only "websockets" is supported.
 BACKEND = 'websockets'
 
+# Logging config
+LOG = {
+    'level': 'INFO',
+    'format': '%(message)s'
+}
+
+
 # Host and port to bind WebSockets.
 WS_HOST = '0.0.0.0'
 WS_PORT = '9000'

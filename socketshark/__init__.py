@@ -1,16 +1,43 @@
 import asyncio
 import importlib
+import logging
+import os
+import sys
 
 import aioredis
 from aioredis.pubsub import Receiver
 import click
+import structlog
 
 from .receiver import ServiceReceiver
+
+
+def setup_structlog(tty=False):
+    processors = [
+        structlog.stdlib.filter_by_level,
+        structlog.processors.TimeStamper(fmt='iso', utc=True),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+    ]
+    if tty:
+        processors.append(structlog.dev.ConsoleRenderer())
+    else:
+        processors.append(structlog.processors.JSONRenderer())
+
+    structlog.configure(
+        processors=processors,
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
 
 
 class SocketShark:
     def __init__(self, config):
         self.config = config
+        self.log = structlog.get_logger().bind(pid=os.getpid())
+        self.log.info('🦈  ready')
 
     async def prepare(self):
         redis_receiver = Receiver(loop=asyncio.get_event_loop())
@@ -41,10 +68,14 @@ def load_backend(config):
 
 
 @click.command()
-@click.option('-c', '--config', help='dotted path to config')
+@click.option('-c', '--config', required=True, help='dotted path to config')
 @click.pass_context
 def run(context, config):
     config_obj = load_config(config)
     backend = load_backend(config_obj)
+    log_config = config_obj['LOG']
+    level = getattr(logging, log_config['level'])
+    logging.basicConfig(format=log_config['format'], level=level)
+    setup_structlog(sys.stdout.isatty())
     shark = SocketShark(config_obj)
     backend.run(shark)
