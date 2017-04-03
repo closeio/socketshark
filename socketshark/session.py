@@ -5,7 +5,7 @@ class Session:
     """
     Represents a client session
     """
-    def __init__(self, client, shark):
+    def __init__(self, shark, client):
         self.auth_info = {}
         self.subscriptions = set()
         self.shark = shark

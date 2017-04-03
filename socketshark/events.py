@@ -2,6 +2,16 @@ from .utils import http_post
 
 
 DEFAULT_AUTH_METHOD = 'ticket'
+MAX_EVENT_LENGTH = 40
+
+# General event errors
+ERR_INVALID_EVENT = 'Messages must be JSON and contain an event field.'
+ERR_UNHANDLED_EXCEPTION = 'Unhandled exception.'
+ERR_EVENT_NOT_FOUND = 'Event not found.'
+
+# Authentication & authorization
+ERR_AUTH_UNSUPPORTED = 'Authentication method unsupported.'
+ERR_UNAUTHORIZED = 'Unauthorized.'
 
 
 class EventError(Exception):
@@ -11,7 +21,14 @@ class EventError(Exception):
 class Event:
     @classmethod
     def from_data(cls, session, data):
-        event = data.get('event')
+        if not isinstance(data, dict) or not 'event' in data:
+            return InvalidEvent(session)
+
+        event = data['event']
+
+        # Make sure we don't echo back large messages.
+        if not isinstance(event, str) or len(event) > MAX_EVENT_LENGTH:
+            return InvalidEvent(session)
 
         cls = {
             'auth': AuthEvent,
@@ -60,16 +77,24 @@ class Event:
         except:
             import traceback
             traceback.print_exc()
-            await self.send_error('Unhandled exception.')
+            await self.send_error(ERR_UNHANDLED_EXCEPTION)
+
+
+class InvalidEvent:
+    def __init__(self, session):
+        self.session = session
+
+    async def full_process(self):
+        msg = {
+            'status': 'error',
+            'error': ERR_INVALID_EVENT,
+        }
+        await self.session.send(msg)
 
 
 class UnknownEvent(Event):
     async def process(self):
-        if 'event' in self.data:
-            raise EventError('Event not found.')
-        else:
-            raise EventError('Event not specified.')
-
+        raise EventError(ERR_EVENT_NOT_FOUND)
 
 class AuthEvent(Event):
     def __init__(self, session, data):
@@ -79,7 +104,7 @@ class AuthEvent(Event):
 
     async def process(self):
         if self.method not in self.auth_config:
-            raise EventError('Authentication method unsupported.')
+            raise EventError(ERR_AUTH_UNSUPPORTED)
 
         # The only supported method.
         assert self.method == 'ticket'
@@ -127,7 +152,7 @@ class SubscriptionEvent(Event):
             result = await http_post(self.shark, url, data)
             if result.get('status') != 'ok':
                 raise EventError(result.get('error', error_message or
-                                            'Unhandled exception.'))
+                                            ERR_UNHANDLED_EXCEPTION))
             return result
         return {'status': 'ok'}
 
@@ -135,7 +160,7 @@ class SubscriptionEvent(Event):
 class SubscribeEvent(SubscriptionEvent):
     async def authorize_subscription(self):
         await self.perform_service_request('authorizer',
-                                           error_message='Unauthorized.')
+                                           error_message=ERR_UNAUTHORIZED)
 
     async def before_subscribe(self):
         return await self.perform_service_request('before_subscribe')

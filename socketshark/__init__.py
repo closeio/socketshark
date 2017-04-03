@@ -48,6 +48,9 @@ class SocketShark:
         self.service_receiver = ServiceReceiver(self.config, self.redis,
                                                 redis_receiver)
 
+    async def shutdown(self):
+        self.redis.close()
+
     async def run_service_receiver(self):
         await self.service_receiver.reader()
 

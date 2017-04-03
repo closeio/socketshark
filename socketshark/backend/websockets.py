@@ -9,7 +9,7 @@ from ..session import Session
 class Client:
     def __init__(self, shark, websocket):
         self.websocket = websocket
-        self.session = Session(self, shark)
+        self.session = Session(shark, self)
 
     async def consumer_handler(self):
         try:
