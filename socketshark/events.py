@@ -21,7 +21,7 @@ class EventError(Exception):
 class Event:
     @classmethod
     def from_data(cls, session, data):
-        if not isinstance(data, dict) or not 'event' in data:
+        if not isinstance(data, dict) or 'event' not in data:
             return InvalidEvent(session)
 
         event = data['event']
@@ -95,6 +95,7 @@ class InvalidEvent:
 class UnknownEvent(Event):
     async def process(self):
         raise EventError(ERR_EVENT_NOT_FOUND)
+
 
 class AuthEvent(Event):
     def __init__(self, session, data):

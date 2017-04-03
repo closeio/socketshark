@@ -2,9 +2,8 @@ import asyncio
 
 import pytest
 
-from socketshark import SocketShark
+from socketshark import events, SocketShark
 from socketshark.session import Session
-from socketshark import events
 
 
 TEST_CONFIG = {
@@ -30,6 +29,7 @@ class TestShark:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(shark.prepare())
         loop.run_until_complete(shark.shutdown())
+
 
 class TestSession:
     @pytest.mark.asyncio
