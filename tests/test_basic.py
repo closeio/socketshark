@@ -95,6 +95,9 @@ class TestSession:
 
     @pytest.mark.asyncio
     async def test_auth_invalid(self):
+        """
+        Test invalid authentication method
+        """
         shark = SocketShark(TEST_CONFIG)
         client = MockClient()
         session = Session(shark, client)
@@ -106,8 +109,23 @@ class TestSession:
             'error': c.ERR_AUTH_UNSUPPORTED,
         }
 
+        no_auth_config = TEST_CONFIG.copy()
+        no_auth_config['AUTHENTICATION'] = {}
+        shark = SocketShark(no_auth_config)
+        session = Session(shark, client)
+
+        await session.on_client_event({'event': 'auth', 'method': 'ticket'})
+        assert client.log.pop() == {
+            'status': 'error',
+            'event': 'auth',
+            'error': c.ERR_AUTH_UNSUPPORTED,
+        }
+
     @pytest.mark.asyncio
     async def test_auth_ticket(self):
+        """
+        Test ticket authentication.
+        """
         shark = SocketShark(TEST_CONFIG)
         client = MockClient()
         session = Session(shark, client)
