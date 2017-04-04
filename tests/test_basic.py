@@ -24,6 +24,12 @@ TEST_CONFIG = {
             'auth_fields': ['session_id'],
         }
     },
+    'SERVICES': {
+        'empty': {},
+        'simple': {
+            'require_authentication': False,
+        }
+    },
 }
 
 
@@ -121,6 +127,8 @@ class TestSession:
             'error': c.ERR_AUTH_UNSUPPORTED,
         }
 
+        assert not client.log
+
     @pytest.mark.asyncio
     async def test_auth_ticket(self):
         """
@@ -201,3 +209,107 @@ class TestSession:
             assert valid_request.kwargs['json'] == {
                 'ticket': 'valid_ticket',
             }
+
+        assert not client.log
+
+    @pytest.mark.asyncio
+    async def test_subscription_invalid(self):
+        """
+        Test subscription validation
+        """
+        shark = SocketShark(TEST_CONFIG)
+        client = MockClient()
+        session = Session(shark, client)
+
+        await session.on_client_event({
+            'event': 'subscribe',
+        })
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'status': 'error',
+            'error': c.ERR_INVALID_SUBSCRIPTION_FORMAT,
+        }
+
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': 'invalid'
+        })
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'status': 'error',
+            'error': c.ERR_INVALID_SUBSCRIPTION_FORMAT,
+        }
+
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': 'invalid.topic'
+        })
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'status': 'error',
+            'error': c.ERR_INVALID_SERVICE,
+        }
+
+        assert not client.log
+
+    @pytest.mark.asyncio
+    async def test_subscription_needs_auth(self):
+        """
+        For safety reasons, subscriptions require authentication by default.
+        """
+        shark = SocketShark(TEST_CONFIG)
+        client = MockClient()
+        session = Session(shark, client)
+
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': 'empty.topic',
+        })
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'status': 'error',
+            'error': c.ERR_AUTH_REQUIRED,
+        }
+
+        assert not client.log
+
+    @pytest.mark.asyncio
+    async def test_subscription_simple(self):
+        """
+        Test subscription to an unauthenticated service.
+
+        Messages are not captured because this service doesn't have any
+        callbacks.
+        """
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient()
+        session = Session(shark, client)
+
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': 'simple.topic',
+        })
+        assert client.log.pop() == {
+            'status': 'ok',
+            'event': 'subscribe',
+        }
+
+        await session.on_client_event({
+            'event': 'message',
+            'subscription': 'simple.topic',
+            'data': { 'foo': 'bar' },
+        })
+
+        await session.on_client_event({
+            'event': 'unsubscribe',
+            'subscription': 'simple.topic',
+        })
+        assert client.log.pop() == {
+            'status': 'ok',
+            'event': 'unsubscribe',
+        }
+
+        assert not client.log
+
+        await shark.shutdown()

@@ -15,3 +15,8 @@ ERR_AUTH_UNSUPPORTED = 'Authentication method unsupported.'
 ERR_UNAUTHORIZED = 'Unauthorized.'
 ERR_NEEDS_TICKET = 'Must specify ticket.'
 ERR_AUTH_FAILED = 'Authentication failed.'
+ERR_AUTH_REQUIRED = 'Authentication required.'
+
+# Subscriptions
+ERR_INVALID_SUBSCRIPTION_FORMAT = 'Invalid subscription format.'
+ERR_INVALID_SERVICE = 'Invalid service.'

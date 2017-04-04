@@ -117,11 +117,18 @@ class AuthEvent(Event):
 class SubscriptionEvent(Event):
     def __init__(self, session, data):
         super().__init__(session, data)
-        self.subscription = data['subscription']
-        self.service, self.topic = self.subscription.split('.', 1)
-        self.service_config = self.config['SERVICES'][self.service]
-        extra_fields = self.service_config.get('extra_fields', [])
-        self.extra_data = {field: data[field] for field in extra_fields}
+        self.subscription = data.get('subscription') or ''
+        if '.' in self.subscription:
+            self.service, self.topic = self.subscription.split('.', 1)
+        else:
+            self.service, self.topic = (None, None)
+        if self.service in self.config['SERVICES']:
+            self.service_config = self.config['SERVICES'][self.service]
+            extra_fields = self.service_config.get('extra_fields', [])
+            self.extra_data = {field: data[field] for field in extra_fields}
+        else:
+            self.service_config = None
+            self.extra_data = {}
 
     def prepare_service_data(self):
         """
@@ -131,6 +138,13 @@ class SubscriptionEvent(Event):
         data.update(self.extra_data)
         data.update(self.session.auth_info)
         return data
+
+    async def process(self):
+        if not self.service or not self.topic:
+            raise EventError(c.ERR_INVALID_SUBSCRIPTION_FORMAT)
+
+        if not self.service_config:
+            raise EventError(c.ERR_INVALID_SERVICE)
 
     async def perform_service_request(self, service_event, extra_data={},
                                       error_message=None):
@@ -158,11 +172,13 @@ class SubscribeEvent(SubscriptionEvent):
         return await self.perform_service_request('on_subscribe')
 
     async def process(self):
+        await super().process()
+
         require_authentication = self.service_config.get(
             'require_authentication', True)
 
         if require_authentication and not self.session.auth_info:
-            raise EventError('Authentication required.')
+            raise EventError(c.ERR_AUTH_REQUIRED)
 
         if self.subscription in self.session.subscriptions:
             raise EventError('Already subscribed.')
@@ -191,6 +207,8 @@ class UnsubscribeEvent(SubscriptionEvent):
         return await self.perform_service_request('on_unsubscribe')
 
     async def process(self):
+        await super().process()
+
         if self.subscription not in self.session.subscriptions:
             raise EventError('Subscription does not exist.')
 
@@ -214,6 +232,8 @@ class MessageEvent(SubscriptionEvent):
         })
 
     async def process(self):
+        await super().process()
+
         if self.subscription not in self.session.subscriptions:
             raise EventError('Subscription does not exist.')
 
