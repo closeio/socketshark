@@ -8,7 +8,7 @@ class Session:
     def __init__(self, shark, client):
         self.auth_info = {}
         self.subscriptions = set()
-        self.extra_data = dict() # {subscription: {extra_data}}
+        self.extra_data = dict()  # {subscription: {extra_data}}
         self.shark = shark
         self.config = shark.config
         self.client = client

@@ -677,8 +677,8 @@ class TestSession:
 
         # Test unsuccessful subscriptions
         with aioresponses() as mock:
-            mock.post(conf['authorizer'], payload={ 'status': 'ok' })
-            mock.post(conf['before_subscribe'], payload={ 'status': 'error' })
+            mock.post(conf['authorizer'], payload={'status': 'ok'})
+            mock.post(conf['before_subscribe'], payload={'status': 'error'})
 
             await session.on_client_event({
                 'event': 'subscribe',
@@ -690,7 +690,7 @@ class TestSession:
                 'error': c.ERR_UNHANDLED_EXCEPTION,
             }
 
-            mock.post(conf['authorizer'], payload={ 'status': 'ok' })
+            mock.post(conf['authorizer'], payload={'status': 'ok'})
             mock.post(conf['before_subscribe'], payload={
                 'status': 'error',
                 'error': 'before subscribe error',
@@ -716,10 +716,10 @@ class TestSession:
 
         # Test successful subscription with extra field and messages
         with aioresponses() as mock:
-            mock.post(conf['authorizer'], payload={ 'status': 'ok' })
-            mock.post(conf['before_subscribe'], payload={ 'status': 'ok' })
-            mock.post(conf['on_subscribe'], payload={ 'doesnt': 'matter' })
-            mock.post(conf['on_message'], payload={ 'status': 'ok' })
+            mock.post(conf['authorizer'], payload={'status': 'ok'})
+            mock.post(conf['before_subscribe'], payload={'status': 'ok'})
+            mock.post(conf['on_subscribe'], payload={'doesnt': 'matter'})
+            mock.post(conf['on_message'], payload={'status': 'ok'})
             mock.post(conf['on_message'], payload={
                 'status': 'error',
                 'error': 'on message error',
@@ -839,13 +839,13 @@ class TestSession:
 
         # Test unsubscribe callbacks
         with aioresponses() as mock:
-            mock.post(conf['before_unsubscribe'], payload={ 'status': 'error' })
+            mock.post(conf['before_unsubscribe'], payload={'status': 'error'})
             mock.post(conf['before_unsubscribe'], payload={
                 'status': 'error',
                 'error': 'before unsubscribe error',
             })
-            mock.post(conf['before_unsubscribe'], payload={ 'status': 'ok' })
-            mock.post(conf['on_unsubscribe'], payload={ 'doesnt': 'matter' })
+            mock.post(conf['before_unsubscribe'], payload={'status': 'ok'})
+            mock.post(conf['on_unsubscribe'], payload={'doesnt': 'matter'})
 
             await session.on_client_event({
                 'event': 'unsubscribe',
@@ -890,7 +890,7 @@ class TestSession:
 
         # Test extra data in subscribe/unsubscribe callbacks
         with aioresponses() as mock:
-            mock.post(conf['authorizer'], payload={ 'status': 'ok' })
+            mock.post(conf['authorizer'], payload={'status': 'ok'})
             mock.post(conf['before_subscribe'], payload={
                 'status': 'ok',
                 'data': {'foo': 'subscribe'},
