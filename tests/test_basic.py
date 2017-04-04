@@ -30,7 +30,11 @@ TEST_CONFIG = {
         'simple': {
             'require_authentication': False,
             'filter_fields': ['session_id'],
-        }
+        },
+        'simple_auth': {
+            'require_authentication': True,
+            'filter_fields': ['session_id'],
+        },
     },
 }
 
@@ -445,5 +449,103 @@ class TestSession:
         assert conf_subs == {}
 
         assert not client.log
+
+        await shark.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_subscription_auth(self):
+        """
+        Test subscription to an authenticated service.
+        """
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient()
+        session = Session(shark, client)
+
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': 'simple_auth.topic',
+        })
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'status': 'error',
+            'error': c.ERR_AUTH_REQUIRED,
+        }
+
+        with aioresponses() as mock:
+            # Mock auth endpoint
+            auth_url = 'http://auth-service/auth/ticket/'
+
+            mock.post(auth_url, payload={
+                'status': 'ok',
+                'session_id': 'sess_123',
+            })
+
+            await session.on_client_event({
+                'event': 'auth',
+                'method': 'ticket',
+                'ticket': 'valid_ticket',
+            })
+            assert client.log.pop() == {
+                'status': 'ok',
+                'event': 'auth',
+            }
+
+            assert session.auth_info == {
+                'session_id': 'sess_123',
+            }
+
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': 'simple_auth.topic',
+        })
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'status': 'ok',
+        }
+
+        # Test message from server to client
+        redis_settings = TEST_CONFIG['REDIS']
+        redis = await aioredis.create_redis((
+            redis_settings['host'], redis_settings['port']))
+        redis_topic = redis_settings['channel_prefix'] + 'simple_auth.topic'
+
+        # This message has no filters and will arrive.
+        await redis.publish_json(redis_topic, {
+            'subscription': 'simple_auth.topic',
+            'data': {'foo': 'bar'}
+        })
+
+        # This message will arrive on an invalid session only.
+        await redis.publish_json(redis_topic, {
+            'subscription': 'simple_auth.topic',
+            'session_id': 'sess_invalid',
+            'data': {'arrives': False},
+        })
+
+        # This message will arrive in the current session.
+        await redis.publish_json(redis_topic, {
+            'subscription': 'simple_auth.topic',
+            'session_id': 'sess_123',
+            'data': {'arrives': True},
+        })
+
+        redis.close()
+
+        # Wait for Redis to propagate the messages
+        await asyncio.sleep(0.1)
+
+        has_messages = await shark.run_service_receiver(once=True)
+        assert has_messages
+
+        assert client.log == [{
+            'event': 'message',
+            'subscription': 'simple_auth.topic',
+            'data': {'foo': 'bar'},
+        }, {
+            'event': 'message',
+            'subscription': 'simple_auth.topic',
+            'data': {'arrives': True},
+        }]
 
         await shark.shutdown()
