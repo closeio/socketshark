@@ -181,7 +181,7 @@ class SubscribeEvent(SubscriptionEvent):
             raise EventError(c.ERR_AUTH_REQUIRED)
 
         if self.subscription in self.session.subscriptions:
-            raise EventError('Already subscribed.')
+            raise EventError(c.ERR_ALREADY_SUBSCRIBED)
 
         await self.authorize_subscription()
 
@@ -210,7 +210,7 @@ class UnsubscribeEvent(SubscriptionEvent):
         await super().process()
 
         if self.subscription not in self.session.subscriptions:
-            raise EventError('Subscription does not exist.')
+            raise EventError(c.ERR_SUBSCRIPTION_NOT_FOUND)
 
         result = await self.before_unsubscribe()
         if result.get('status') != 'ok':
@@ -235,7 +235,7 @@ class MessageEvent(SubscriptionEvent):
         await super().process()
 
         if self.subscription not in self.session.subscriptions:
-            raise EventError('Subscription does not exist.')
+            raise EventError(c.ERR_SUBSCRIPTION_NOT_FOUND)
 
         result = await self.on_message()
         if 'data' in result:

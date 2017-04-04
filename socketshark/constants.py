@@ -20,3 +20,5 @@ ERR_AUTH_REQUIRED = 'Authentication required.'
 # Subscriptions
 ERR_INVALID_SUBSCRIPTION_FORMAT = 'Invalid subscription format.'
 ERR_INVALID_SERVICE = 'Invalid service.'
+ERR_ALREADY_SUBSCRIBED = 'Already subscribed.'
+ERR_SUBSCRIPTION_NOT_FOUND = 'Subscription does not exist.'

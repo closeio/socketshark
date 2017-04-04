@@ -155,8 +155,23 @@ class TestSession:
         }
 
         with aioresponses() as mock:
+            # Auth endpoint unreachable
+            await session.on_client_event({
+                'event': 'auth',
+                'method': 'ticket',
+                'ticket': 'the_ticket',
+            })
+            assert client.log.pop() == {
+                'status': 'error',
+                'event': 'auth',
+                'error': c.ERR_SERVICE_UNAVAILABLE,
+            }
+
+        with aioresponses() as mock:
+            # Mock auth endpoint
             auth_url = 'http://auth-service/auth/ticket/'
 
+            # First request fails, second one succeeds.
             mock.post(auth_url, payload={
                 'status': 'error',
 
@@ -200,6 +215,7 @@ class TestSession:
                 'session_id': 'sess_123',
             }
 
+            # Ensure we passed the right arguments to the mock endpoint.
             requests = mock.requests[('POST', auth_url)]
 
             invalid_request, valid_request = requests
@@ -274,6 +290,53 @@ class TestSession:
         }
 
         assert not client.log
+
+    @pytest.mark.asyncio
+    async def test_subscription_validation(self):
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient()
+        session = Session(shark, client)
+
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': 'simple.topic',
+        })
+        assert client.log.pop() == {
+            'status': 'ok',
+            'event': 'subscribe',
+        }
+
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': 'simple.topic',
+        })
+        assert client.log.pop() == {
+            'status': 'error',
+            'event': 'subscribe',
+            'error': c.ERR_ALREADY_SUBSCRIBED,
+        }
+
+        await session.on_client_event({
+            'event': 'message',
+            'subscription': 'simple.invalid',
+            'data': {'foo': 'bar'},
+        })
+        assert client.log.pop() == {
+            'status': 'error',
+            'event': 'message',
+            'error': c.ERR_SUBSCRIPTION_NOT_FOUND,
+        }
+
+        await session.on_client_event({
+            'event': 'unsubscribe',
+            'subscription': 'simple.invalid',
+        })
+        assert client.log.pop() == {
+            'status': 'error',
+            'event': 'unsubscribe',
+            'error': c.ERR_SUBSCRIPTION_NOT_FOUND,
+        }
 
     @pytest.mark.asyncio
     async def test_subscription_simple(self):
