@@ -8,6 +8,7 @@ class Session:
     def __init__(self, shark, client):
         self.auth_info = {}
         self.subscriptions = set()
+        self.extra_data = dict() # {subscription: {extra_data}}
         self.shark = shark
         self.config = shark.config
         self.client = client
@@ -35,6 +36,8 @@ class Session:
             'subscription': subscription,
             'data': data['data'],
         }
+        extra_data = self.extra_data[subscription]
+        msg.update(extra_data)
         await self.send(msg)
 
     async def send(self, data):

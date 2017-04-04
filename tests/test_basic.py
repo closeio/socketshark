@@ -40,6 +40,16 @@ TEST_CONFIG = {
             'authorizer': 'http://auth-service/auth/authorizer/',
             'extra_fields': ['extra'],
         },
+        'complex': {
+            'require_authentication': True,
+            'authorizer': 'http://auth-service/auth/authorizer/',
+            'extra_fields': ['extra'],
+            'before_subscribe': 'http://my-service/subscribe/',
+            'before_unsubscribe': 'http://my-service/unsubscribe/',
+            'on_subscribe': 'http://my-service/on_subscribe/',
+            'on_unsubscribe': 'http://my-service/on_unsubscribe/',
+            'on_message': 'http://my-service/on_message/',
+        },
     },
 }
 
@@ -559,7 +569,7 @@ class TestSession:
         await shark.shutdown()
 
     @pytest.mark.asyncio
-    async def test_subscription_complex(self):
+    async def test_subscription_authorizer(self):
         shark = SocketShark(TEST_CONFIG)
         await shark.prepare()
         client = MockClient()
@@ -650,5 +660,268 @@ class TestSession:
                 'session_id': 'sess_123',
                 'extra': 'foo',
             }
+
+        assert client.log == []
+
+        await shark.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_subscription_complex(self):
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient()
+        session = Session(shark, client)
+        await self._auth_session(session)
+
+        conf = TEST_CONFIG['SERVICES']['complex']
+
+        # Test unsuccessful subscriptions
+        with aioresponses() as mock:
+            mock.post(conf['authorizer'], payload={ 'status': 'ok' })
+            mock.post(conf['before_subscribe'], payload={ 'status': 'error' })
+
+            await session.on_client_event({
+                'event': 'subscribe',
+                'subscription': 'complex.topic',
+            })
+            assert client.log.pop() == {
+                'event': 'subscribe',
+                'status': 'error',
+                'error': c.ERR_UNHANDLED_EXCEPTION,
+            }
+
+            mock.post(conf['authorizer'], payload={ 'status': 'ok' })
+            mock.post(conf['before_subscribe'], payload={
+                'status': 'error',
+                'error': 'before subscribe error',
+            })
+
+            await session.on_client_event({
+                'event': 'subscribe',
+                'subscription': 'complex.topic',
+            })
+            assert client.log.pop() == {
+                'event': 'subscribe',
+                'status': 'error',
+                'error': 'before subscribe error',
+            }
+
+            req_list_1 = mock.requests[('POST', conf['authorizer'])]
+            req_list_2 = mock.requests[('POST', conf['before_subscribe'])]
+            for request in req_list_1 + req_list_2:
+                assert request.kwargs['json'] == {
+                    'session_id': 'sess_123',
+                    'subscription': 'complex.topic'
+                }
+
+        # Test successful subscription with extra field and messages
+        with aioresponses() as mock:
+            mock.post(conf['authorizer'], payload={ 'status': 'ok' })
+            mock.post(conf['before_subscribe'], payload={ 'status': 'ok' })
+            mock.post(conf['on_subscribe'], payload={ 'doesnt': 'matter' })
+            mock.post(conf['on_message'], payload={ 'status': 'ok' })
+            mock.post(conf['on_message'], payload={
+                'status': 'error',
+                'error': 'on message error',
+            })
+            mock.post(conf['on_message'], payload={
+                'status': 'ok',
+                'data': None,
+            })
+            mock.post(conf['on_message'], payload={
+                'status': 'ok',
+                'data': {'reply': True}
+            })
+
+            await session.on_client_event({
+                'event': 'subscribe',
+                'subscription': 'complex.topic',
+                'extra': 'hello',
+            })
+            assert client.log.pop() == {
+                'event': 'subscribe',
+                'status': 'ok',
+                'extra': 'hello',
+            }
+
+            # Successful but no reply
+            await session.on_client_event({
+                'event': 'message',
+                'subscription': 'complex.topic',
+                'extra': 'irrelevant',
+            })
+
+            await session.on_client_event({
+                'event': 'message',
+                'subscription': 'complex.topic',
+                'extra': 'irrelevant',
+                'data': {'foo': 'bar', 'baz': 123},
+            })
+            assert client.log.pop() == {
+                'event': 'message',
+                'status': 'error',
+                'extra': 'hello',
+                'error': 'on message error',
+            }
+
+            await session.on_client_event({
+                'event': 'message',
+                'subscription': 'complex.topic',
+                'extra': 'irrelevant',
+            })
+            assert client.log.pop() == {
+                'event': 'message',
+                'status': 'ok',
+                'extra': 'hello',
+            }
+
+            await session.on_client_event({
+                'event': 'message',
+                'subscription': 'complex.topic',
+                'extra': 'irrelevant',
+            })
+            assert client.log.pop() == {
+                'event': 'message',
+                'status': 'ok',
+                'extra': 'hello',
+                'data': {'reply': True},
+            }
+
+            req_list_1 = mock.requests[('POST', conf['authorizer'])]
+            req_list_2 = mock.requests[('POST', conf['before_subscribe'])]
+            req_list_3 = mock.requests[('POST', conf['on_subscribe'])]
+            for request in req_list_1 + req_list_2 + req_list_3:
+                assert request.kwargs['json'] == {
+                    'session_id': 'sess_123',
+                    'subscription': 'complex.topic',
+                    'extra': 'hello',
+                }
+
+            msg_reqs = mock.requests[('POST', conf['on_message'])]
+            assert msg_reqs[0].kwargs['json'] == {
+                'session_id': 'sess_123',
+                'subscription': 'complex.topic',
+                'extra': 'hello',
+                'data': None,
+            }
+            assert msg_reqs[1].kwargs['json'] == {
+                'session_id': 'sess_123',
+                'subscription': 'complex.topic',
+                'extra': 'hello',
+                'data': {'foo': 'bar', 'baz': 123},
+            }
+
+        # Test message from server to client
+        redis_settings = TEST_CONFIG['REDIS']
+        redis = await aioredis.create_redis((
+            redis_settings['host'], redis_settings['port']))
+        redis_topic = redis_settings['channel_prefix'] + 'complex.topic'
+
+        await redis.publish_json(redis_topic, {
+            'subscription': 'complex.topic',
+            'data': {'foo': 'bar'}
+        })
+
+        redis.close()
+
+        # Wait for Redis to propagate the messages
+        await asyncio.sleep(0.1)
+
+        has_messages = await shark.run_service_receiver(once=True)
+        assert has_messages
+
+        assert client.log.pop() == {
+            'event': 'message',
+            'subscription': 'complex.topic',
+            'data': {'foo': 'bar'},
+            'extra': 'hello',
+        }
+
+        # Test unsubscribe callbacks
+        with aioresponses() as mock:
+            mock.post(conf['before_unsubscribe'], payload={ 'status': 'error' })
+            mock.post(conf['before_unsubscribe'], payload={
+                'status': 'error',
+                'error': 'before unsubscribe error',
+            })
+            mock.post(conf['before_unsubscribe'], payload={ 'status': 'ok' })
+            mock.post(conf['on_unsubscribe'], payload={ 'doesnt': 'matter' })
+
+            await session.on_client_event({
+                'event': 'unsubscribe',
+                'subscription': 'complex.topic',
+            })
+            assert client.log.pop() == {
+                'event': 'unsubscribe',
+                'status': 'error',
+                'extra': 'hello',
+                'error': c.ERR_UNHANDLED_EXCEPTION,
+            }
+
+            await session.on_client_event({
+                'event': 'unsubscribe',
+                'subscription': 'complex.topic',
+            })
+            assert client.log.pop() == {
+                'event': 'unsubscribe',
+                'status': 'error',
+                'extra': 'hello',
+                'error': 'before unsubscribe error',
+            }
+
+            await session.on_client_event({
+                'event': 'unsubscribe',
+                'subscription': 'complex.topic',
+            })
+            assert client.log.pop() == {
+                'event': 'unsubscribe',
+                'status': 'ok',
+                'extra': 'hello',
+            }
+
+            req_list_1 = mock.requests[('POST', conf['before_unsubscribe'])]
+            req_list_2 = mock.requests[('POST', conf['on_unsubscribe'])]
+            for request in req_list_1 + req_list_2:
+                assert request.kwargs['json'] == {
+                    'session_id': 'sess_123',
+                    'subscription': 'complex.topic',
+                    'extra': 'hello',
+                }
+
+        # Test extra data in subscribe/unsubscribe callbacks
+        with aioresponses() as mock:
+            mock.post(conf['authorizer'], payload={ 'status': 'ok' })
+            mock.post(conf['before_subscribe'], payload={
+                'status': 'ok',
+                'data': {'foo': 'subscribe'},
+            })
+            mock.post(conf['on_subscribe'], payload={})
+            mock.post(conf['before_unsubscribe'], payload={
+                'status': 'ok',
+                'data': {'foo': 'unsubscribe'},
+            })
+            mock.post(conf['on_unsubscribe'], payload={})
+
+            await session.on_client_event({
+                'event': 'subscribe',
+                'subscription': 'complex.extra_data',
+            })
+            assert client.log.pop() == {
+                'event': 'subscribe',
+                'status': 'ok',
+                'data': {'foo': 'subscribe'},
+            }
+
+            await session.on_client_event({
+                'event': 'unsubscribe',
+                'subscription': 'complex.extra_data',
+            })
+            assert client.log.pop() == {
+                'event': 'unsubscribe',
+                'status': 'ok',
+                'data': {'foo': 'unsubscribe'},
+            }
+
+        assert client.log == []
 
         await shark.shutdown()
