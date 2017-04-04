@@ -10,6 +10,7 @@ install_requires = [
 ]
 
 tests_require = install_requires + [
+    'aioresponses',
     'pytest',
     'pytest-asyncio',
 ]

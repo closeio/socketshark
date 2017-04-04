@@ -4,6 +4,9 @@ import ssl
 import aiohttp
 
 
+from . import constants as c
+
+
 async def http_post(shark, url, data):
     opts = shark.config['HTTP']
     if 'ssl_cafile' in opts:
@@ -18,11 +21,9 @@ async def http_post(shark, url, data):
             try:
                 async with session.post(url, json=data,
                                         timeout=opts['timeout']) as resp:
-                    print('RETURN', await resp.text())
-                    return await resp.json()
+                    data = await resp.json()
+                    shark.log.debug('http response', data=data)
+                    return data
             except aiohttp.ClientError:
-                # TODO: log
-                print('ERROR')
-                import traceback
-                traceback.print_exc()
-        return {'status': 'error', 'error': 'Service unavailable.'}
+                shark.log.exception('unhandled exception', exc_info=True)
+        return {'status': 'error', 'error': c.ERR_SERVICE_UNAVAILABLE}

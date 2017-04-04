@@ -1,17 +1,5 @@
+from . import constants as c
 from .utils import http_post
-
-
-DEFAULT_AUTH_METHOD = 'ticket'
-MAX_EVENT_LENGTH = 40
-
-# General event errors
-ERR_INVALID_EVENT = 'Messages must be JSON and contain an event field.'
-ERR_UNHANDLED_EXCEPTION = 'Unhandled exception.'
-ERR_EVENT_NOT_FOUND = 'Event not found.'
-
-# Authentication & authorization
-ERR_AUTH_UNSUPPORTED = 'Authentication method unsupported.'
-ERR_UNAUTHORIZED = 'Unauthorized.'
 
 
 class EventError(Exception):
@@ -27,7 +15,7 @@ class Event:
         event = data['event']
 
         # Make sure we don't echo back large messages.
-        if not isinstance(event, str) or len(event) > MAX_EVENT_LENGTH:
+        if not isinstance(event, str) or len(event) > c.MAX_EVENT_LENGTH:
             return InvalidEvent(session)
 
         cls = {
@@ -75,9 +63,9 @@ class Event:
         except EventError as e:
             await self.send_error(str(e))
         except:
-            import traceback
-            traceback.print_exc()
-            await self.send_error(ERR_UNHANDLED_EXCEPTION)
+            self.shark.log.exception('unhandled exception', exc_info=True)
+            await self.send_error(c.ERR_UNHANDLED_EXCEPTION)
+            raise
 
 
 class InvalidEvent:
@@ -87,25 +75,25 @@ class InvalidEvent:
     async def full_process(self):
         msg = {
             'status': 'error',
-            'error': ERR_INVALID_EVENT,
+            'error': c.ERR_INVALID_EVENT,
         }
         await self.session.send(msg)
 
 
 class UnknownEvent(Event):
     async def process(self):
-        raise EventError(ERR_EVENT_NOT_FOUND)
+        raise EventError(c.ERR_EVENT_NOT_FOUND)
 
 
 class AuthEvent(Event):
     def __init__(self, session, data):
         super().__init__(session, data)
         self.auth_config = self.config['AUTHENTICATION']
-        self.method = data.get('method', DEFAULT_AUTH_METHOD)
+        self.method = data.get('method', c.DEFAULT_AUTH_METHOD)
 
     async def process(self):
         if self.method not in self.auth_config:
-            raise EventError(ERR_AUTH_UNSUPPORTED)
+            raise EventError(c.ERR_AUTH_UNSUPPORTED)
 
         # The only supported method.
         assert self.method == 'ticket'
@@ -114,13 +102,13 @@ class AuthEvent(Event):
 
         ticket = self.data.get('ticket')
         if not ticket:
-            raise EventError('Must specify ticket.')
+            raise EventError(c.ERR_NEEDS_TICKET)
 
         auth_url = auth_method_config['validation_url']
         auth_fields = auth_method_config['auth_fields']
         result = await http_post(self.shark, auth_url, {'ticket': ticket})
         if result.get('status') != 'ok':
-            raise EventError(result.get('error', 'Authentication failed'))
+            raise EventError(result.get('error', c.ERR_AUTH_FAILED))
         auth_info = {field: result[field] for field in auth_fields}
         self.session.auth_info = auth_info
         await self.send_ok()
@@ -153,7 +141,7 @@ class SubscriptionEvent(Event):
             result = await http_post(self.shark, url, data)
             if result.get('status') != 'ok':
                 raise EventError(result.get('error', error_message or
-                                            ERR_UNHANDLED_EXCEPTION))
+                                            c.ERR_UNHANDLED_EXCEPTION))
             return result
         return {'status': 'ok'}
 
@@ -161,7 +149,7 @@ class SubscriptionEvent(Event):
 class SubscribeEvent(SubscriptionEvent):
     async def authorize_subscription(self):
         await self.perform_service_request('authorizer',
-                                           error_message=ERR_UNAUTHORIZED)
+                                           error_message=c.ERR_UNAUTHORIZED)
 
     async def before_subscribe(self):
         return await self.perform_service_request('before_subscribe')
