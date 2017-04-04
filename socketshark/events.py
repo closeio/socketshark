@@ -143,7 +143,7 @@ class SubscriptionEvent(Event):
         if not self.service or not self.topic:
             raise EventError(c.ERR_INVALID_SUBSCRIPTION_FORMAT)
 
-        if not self.service_config:
+        if self.service_config is None:
             raise EventError(c.ERR_INVALID_SERVICE)
 
     async def perform_service_request(self, service_event, extra_data={},

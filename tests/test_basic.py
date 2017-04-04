@@ -1,5 +1,6 @@
 import asyncio
 
+import aioredis
 from aioresponses import aioresponses
 import pytest
 
@@ -28,6 +29,7 @@ TEST_CONFIG = {
         'empty': {},
         'simple': {
             'require_authentication': False,
+            'filter_fields': ['session_id'],
         }
     },
 }
@@ -295,11 +297,74 @@ class TestSession:
             'event': 'subscribe',
         }
 
+        prov_subs = shark.service_receiver.provisional_subscriptions
+        assert prov_subs == {}
+
+        conf_subs = shark.service_receiver.confirmed_subscriptions
+        sessions = conf_subs['simple.topic']
+        assert sessions == set([session])
+
+        # Test message from client to server
         await session.on_client_event({
             'event': 'message',
             'subscription': 'simple.topic',
-            'data': { 'foo': 'bar' },
+            'data': {'foo': 'bar'},
         })
+
+        # Test message from server to client
+        redis_settings = TEST_CONFIG['REDIS']
+        redis = await aioredis.create_redis((
+            redis_settings['host'], redis_settings['port']))
+        redis_topic = redis_settings['channel_prefix'] + 'simple.topic'
+
+        # This message has no filters and will arrive.
+        await redis.publish_json(redis_topic, {
+            'subscription': 'simple.topic',
+            'data': {'baz': 'foo'}
+        })
+
+        # This message has an invalid subscription.
+        await redis.publish_json(redis_topic, {
+            'subscription': 'simple.othertopic',
+            'data': {'never': 'arrives'}
+        })
+
+        # This message has incorrect JSON
+        await redis.publish(redis_topic, '{')
+
+        # This message will arrive on anonymous sessions only.
+        await redis.publish_json(redis_topic, {
+            'subscription': 'simple.topic',
+            'session_id': None,
+            'data': {'arrives': True},
+        })
+
+        # This message will not arrive on sessions with a session_id.
+        await redis.publish_json(redis_topic, {
+            'subscription': 'simple.topic',
+            'session_id': 'sess_123',
+            'data': {'arrives': False},
+        })
+
+        redis.close()
+
+        # Wait for Redis to propagate the messages
+        await asyncio.sleep(0.1)
+
+        has_messages = await shark.run_service_receiver(once=True)
+        assert has_messages
+
+        assert client.log == [{
+            'event': 'message',
+            'subscription': 'simple.topic',
+            'data': {'baz': 'foo'},
+        }, {
+            'event': 'message',
+            'subscription': 'simple.topic',
+            'data': {'arrives': True},
+        }]
+
+        client.log = []
 
         await session.on_client_event({
             'event': 'unsubscribe',
@@ -309,6 +374,12 @@ class TestSession:
             'status': 'ok',
             'event': 'unsubscribe',
         }
+
+        prov_subs = shark.service_receiver.provisional_subscriptions
+        assert prov_subs == {}
+
+        conf_subs = shark.service_receiver.confirmed_subscriptions
+        assert conf_subs == {}
 
         assert not client.log
 

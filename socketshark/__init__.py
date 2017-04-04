@@ -45,14 +45,13 @@ class SocketShark:
         self.redis = await aioredis.create_redis((
             redis_settings['host'], redis_settings['port']))
 
-        self.service_receiver = ServiceReceiver(self.config, self.redis,
-                                                redis_receiver)
+        self.service_receiver = ServiceReceiver(self, redis_receiver)
 
     async def shutdown(self):
         self.redis.close()
 
-    async def run_service_receiver(self):
-        await self.service_receiver.reader()
+    async def run_service_receiver(self, once=False):
+        return await self.service_receiver.reader(once=once)
 
 
 def load_config(config_name):
