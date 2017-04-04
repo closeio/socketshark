@@ -4,9 +4,13 @@ machine:
   services:
     - redis
 
+dependencies:
+  override:
+    - pip install -r requirements.txt
+
 test:
   pre:
-    - pip install flake8 flake8-import-order pep8-naming pytest
+    - pip install -r requirements_tests.txt
     - flake8
   override:
     - pytest
