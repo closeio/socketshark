@@ -35,6 +35,11 @@ TEST_CONFIG = {
             'require_authentication': True,
             'filter_fields': ['session_id'],
         },
+        'authorizer': {
+            'require_authentication': True,
+            'authorizer': 'http://auth-service/auth/authorizer/',
+            'extra_fields': ['extra'],
+        },
     },
 }
 
@@ -56,6 +61,30 @@ class TestShark:
 
 
 class TestSession:
+    async def _auth_session(self, session):
+        with aioresponses() as mock:
+            # Mock auth endpoint
+            auth_url = 'http://auth-service/auth/ticket/'
+
+            mock.post(auth_url, payload={
+                'status': 'ok',
+                'session_id': 'sess_123',
+            })
+
+            await session.on_client_event({
+                'event': 'auth',
+                'method': 'ticket',
+                'ticket': 'valid_ticket',
+            })
+            assert session.client.log.pop() == {
+                'status': 'ok',
+                'event': 'auth',
+            }
+
+            assert session.auth_info == {
+                'session_id': 'sess_123',
+            }
+
     @pytest.mark.asyncio
     async def test_invalid_message(self):
         """
@@ -219,7 +248,7 @@ class TestSession:
                 'session_id': 'sess_123',
             }
 
-            # Ensure we passed the right arguments to the mock endpoint.
+            # Ensure we passed the right arguments to the auth endpoint.
             requests = mock.requests[('POST', auth_url)]
 
             invalid_request, valid_request = requests
@@ -472,28 +501,7 @@ class TestSession:
             'error': c.ERR_AUTH_REQUIRED,
         }
 
-        with aioresponses() as mock:
-            # Mock auth endpoint
-            auth_url = 'http://auth-service/auth/ticket/'
-
-            mock.post(auth_url, payload={
-                'status': 'ok',
-                'session_id': 'sess_123',
-            })
-
-            await session.on_client_event({
-                'event': 'auth',
-                'method': 'ticket',
-                'ticket': 'valid_ticket',
-            })
-            assert client.log.pop() == {
-                'status': 'ok',
-                'event': 'auth',
-            }
-
-            assert session.auth_info == {
-                'session_id': 'sess_123',
-            }
+        await self._auth_session(session)
 
         await session.on_client_event({
             'event': 'subscribe',
@@ -547,5 +555,100 @@ class TestSession:
             'subscription': 'simple_auth.topic',
             'data': {'arrives': True},
         }]
+
+        await shark.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_subscription_complex(self):
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient()
+        session = Session(shark, client)
+
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': 'authorizer.topic',
+        })
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'status': 'error',
+            'error': c.ERR_AUTH_REQUIRED,
+        }
+
+        await self._auth_session(session)
+
+        with aioresponses() as mock:
+            # Authorizer is unavailable.
+            await session.on_client_event({
+                'event': 'subscribe',
+                'subscription': 'authorizer.topic',
+            })
+            assert client.log.pop() == {
+                'event': 'subscribe',
+                'status': 'error',
+                'error': c.ERR_SERVICE_UNAVAILABLE,
+            }
+
+        with aioresponses() as mock:
+            # Mock authorizer
+            authorizer_url = 'http://auth-service/auth/authorizer/'
+
+            mock.post(authorizer_url, payload={
+                'status': 'error',
+            })
+
+            mock.post(authorizer_url, payload={
+                'status': 'error',
+                'error': 'test error',
+            })
+
+            mock.post(authorizer_url, payload={
+                'status': 'ok',
+            })
+
+            await session.on_client_event({
+                'event': 'subscribe',
+                'subscription': 'authorizer.topic',
+            })
+            assert client.log.pop() == {
+                'event': 'subscribe',
+                'status': 'error',
+                'error': c.ERR_UNAUTHORIZED,
+            }
+
+            await session.on_client_event({
+                'event': 'subscribe',
+                'subscription': 'authorizer.topic',
+            })
+            assert client.log.pop() == {
+                'event': 'subscribe',
+                'status': 'error',
+                'error': 'test error',
+            }
+
+            await session.on_client_event({
+                'event': 'subscribe',
+                'subscription': 'authorizer.topic',
+                'extra': 'foo',
+                'other': 'bar',
+            })
+            assert client.log.pop() == {
+                'event': 'subscribe',
+                'status': 'ok',
+                'extra': 'foo',
+            }
+
+            # Ensure we passed the right arguments to the authorizer endpoint.
+            requests = mock.requests[('POST', authorizer_url)]
+            r1, r2, r3 = requests
+            assert r1.kwargs['json'] == r2.kwargs['json'] == {
+                'subscription': 'authorizer.topic',
+                'session_id': 'sess_123',
+            }
+            assert r3.kwargs['json'] == {
+                'subscription': 'authorizer.topic',
+                'session_id': 'sess_123',
+                'extra': 'foo',
+            }
 
         await shark.shutdown()
