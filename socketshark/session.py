@@ -12,11 +12,15 @@ class Session:
         self.shark = shark
         self.config = shark.config
         self.client = client
+        self.log = self.shark.log.bind(session=id(self))
+        self.log.debug('new session')
 
     async def on_client_event(self, data):
+        self.log.debug('client event', data=data)
         await Event.from_data(self, data).full_process()
 
     async def on_service_event(self, data):
+        self.log.debug('service event', data=data)
         # Filter by comparing filter_fields to auth_info
         subscription = data['subscription']
         service, topic = subscription.split('.', 1)

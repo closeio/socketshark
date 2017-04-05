@@ -15,7 +15,6 @@ class Client:
         try:
             while True:
                 event = await self.websocket.recv()
-                print('EVENT', event)
                 await self.session.on_client_event(json.loads(event))
         except websockets.ConnectionClosed:
             print('closed')

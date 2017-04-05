@@ -37,7 +37,8 @@ class SocketShark:
     def __init__(self, config):
         self.config = config
         self.log = structlog.get_logger().bind(pid=os.getpid())
-        self.log.info('🦈  ready')
+        self.log.info('🦈  ready', host=config['WS_HOST'],
+                      port=config['WS_PORT'])
 
     async def prepare(self):
         redis_receiver = Receiver(loop=asyncio.get_event_loop())
