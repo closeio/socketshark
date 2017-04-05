@@ -9,6 +9,8 @@ from socketshark.session import Session
 
 
 TEST_CONFIG = {
+    'WS_HOST': '127.0.0.1',
+    'WS_PORT': 9001,
     'REDIS': {
         'host': 'localhost',
         'port': 6379,
