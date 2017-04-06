@@ -299,6 +299,7 @@ class TestSession:
         })
         assert client.log.pop() == {
             'event': 'subscribe',
+            'subscription': 'invalid',
             'status': 'error',
             'error': c.ERR_INVALID_SUBSCRIPTION_FORMAT,
         }
@@ -309,6 +310,7 @@ class TestSession:
         })
         assert client.log.pop() == {
             'event': 'subscribe',
+            'subscription': 'invalid.topic',
             'status': 'error',
             'error': c.ERR_INVALID_SERVICE,
         }
@@ -330,6 +332,7 @@ class TestSession:
         })
         assert client.log.pop() == {
             'event': 'subscribe',
+            'subscription': 'empty.topic',
             'status': 'error',
             'error': c.ERR_AUTH_REQUIRED,
         }
@@ -348,8 +351,9 @@ class TestSession:
             'subscription': 'simple.topic',
         })
         assert client.log.pop() == {
-            'status': 'ok',
             'event': 'subscribe',
+            'subscription': 'simple.topic',
+            'status': 'ok',
         }
 
         await session.on_client_event({
@@ -357,8 +361,9 @@ class TestSession:
             'subscription': 'simple.topic',
         })
         assert client.log.pop() == {
-            'status': 'error',
             'event': 'subscribe',
+            'subscription': 'simple.topic',
+            'status': 'error',
             'error': c.ERR_ALREADY_SUBSCRIBED,
         }
 
@@ -369,6 +374,7 @@ class TestSession:
         })
         assert client.log.pop() == {
             'status': 'error',
+            'subscription': 'simple.invalid',
             'event': 'message',
             'error': c.ERR_SUBSCRIPTION_NOT_FOUND,
         }
@@ -378,8 +384,9 @@ class TestSession:
             'subscription': 'simple.invalid',
         })
         assert client.log.pop() == {
-            'status': 'error',
             'event': 'unsubscribe',
+            'subscription': 'simple.invalid',
+            'status': 'error',
             'error': c.ERR_SUBSCRIPTION_NOT_FOUND,
         }
 
@@ -401,8 +408,9 @@ class TestSession:
             'subscription': 'simple.topic',
         })
         assert client.log.pop() == {
-            'status': 'ok',
             'event': 'subscribe',
+            'subscription': 'simple.topic',
+            'status': 'ok',
         }
 
         prov_subs = shark.service_receiver.provisional_subscriptions
@@ -479,8 +487,9 @@ class TestSession:
             'subscription': 'simple.topic',
         })
         assert client.log.pop() == {
-            'status': 'ok',
             'event': 'unsubscribe',
+            'subscription': 'simple.topic',
+            'status': 'ok',
         }
 
         prov_subs = shark.service_receiver.provisional_subscriptions
@@ -509,6 +518,7 @@ class TestSession:
         })
         assert client.log.pop() == {
             'event': 'subscribe',
+            'subscription': 'simple_auth.topic',
             'status': 'error',
             'error': c.ERR_AUTH_REQUIRED,
         }
@@ -521,6 +531,7 @@ class TestSession:
         })
         assert client.log.pop() == {
             'event': 'subscribe',
+            'subscription': 'simple_auth.topic',
             'status': 'ok',
         }
 
@@ -583,6 +594,7 @@ class TestSession:
         })
         assert client.log.pop() == {
             'event': 'subscribe',
+            'subscription': 'authorizer.topic',
             'status': 'error',
             'error': c.ERR_AUTH_REQUIRED,
         }
@@ -597,6 +609,7 @@ class TestSession:
             })
             assert client.log.pop() == {
                 'event': 'subscribe',
+                'subscription': 'authorizer.topic',
                 'status': 'error',
                 'error': c.ERR_SERVICE_UNAVAILABLE,
             }
@@ -624,6 +637,7 @@ class TestSession:
             })
             assert client.log.pop() == {
                 'event': 'subscribe',
+                'subscription': 'authorizer.topic',
                 'status': 'error',
                 'error': c.ERR_UNAUTHORIZED,
             }
@@ -634,6 +648,7 @@ class TestSession:
             })
             assert client.log.pop() == {
                 'event': 'subscribe',
+                'subscription': 'authorizer.topic',
                 'status': 'error',
                 'error': 'test error',
             }
@@ -646,6 +661,7 @@ class TestSession:
             })
             assert client.log.pop() == {
                 'event': 'subscribe',
+                'subscription': 'authorizer.topic',
                 'status': 'ok',
                 'extra': 'foo',
             }
@@ -688,6 +704,7 @@ class TestSession:
             })
             assert client.log.pop() == {
                 'event': 'subscribe',
+                'subscription': 'complex.topic',
                 'status': 'error',
                 'error': c.ERR_UNHANDLED_EXCEPTION,
             }
@@ -704,6 +721,7 @@ class TestSession:
             })
             assert client.log.pop() == {
                 'event': 'subscribe',
+                'subscription': 'complex.topic',
                 'status': 'error',
                 'error': 'before subscribe error',
             }
@@ -742,6 +760,7 @@ class TestSession:
             })
             assert client.log.pop() == {
                 'event': 'subscribe',
+                'subscription': 'complex.topic',
                 'status': 'ok',
                 'extra': 'hello',
             }
@@ -761,6 +780,7 @@ class TestSession:
             })
             assert client.log.pop() == {
                 'event': 'message',
+                'subscription': 'complex.topic',
                 'status': 'error',
                 'extra': 'hello',
                 'error': 'on message error',
@@ -773,6 +793,7 @@ class TestSession:
             })
             assert client.log.pop() == {
                 'event': 'message',
+                'subscription': 'complex.topic',
                 'status': 'ok',
                 'extra': 'hello',
             }
@@ -784,6 +805,7 @@ class TestSession:
             })
             assert client.log.pop() == {
                 'event': 'message',
+                'subscription': 'complex.topic',
                 'status': 'ok',
                 'extra': 'hello',
                 'data': {'reply': True},
@@ -855,6 +877,7 @@ class TestSession:
             })
             assert client.log.pop() == {
                 'event': 'unsubscribe',
+                'subscription': 'complex.topic',
                 'status': 'error',
                 'extra': 'hello',
                 'error': c.ERR_UNHANDLED_EXCEPTION,
@@ -866,6 +889,7 @@ class TestSession:
             })
             assert client.log.pop() == {
                 'event': 'unsubscribe',
+                'subscription': 'complex.topic',
                 'status': 'error',
                 'extra': 'hello',
                 'error': 'before unsubscribe error',
@@ -877,6 +901,7 @@ class TestSession:
             })
             assert client.log.pop() == {
                 'event': 'unsubscribe',
+                'subscription': 'complex.topic',
                 'status': 'ok',
                 'extra': 'hello',
             }
@@ -910,6 +935,7 @@ class TestSession:
             })
             assert client.log.pop() == {
                 'event': 'subscribe',
+                'subscription': 'complex.extra_data',
                 'status': 'ok',
                 'data': {'foo': 'subscribe'},
             }
@@ -920,10 +946,55 @@ class TestSession:
             })
             assert client.log.pop() == {
                 'event': 'unsubscribe',
+                'subscription': 'complex.extra_data',
                 'status': 'ok',
                 'data': {'foo': 'unsubscribe'},
             }
 
         assert client.log == []
+
+        await shark.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_unsubscribe_on_close(self):
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient()
+        session = Session(shark, client)
+        await self._auth_session(session)
+
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': 'simple.one',
+        })
+        assert session.client.log.pop() == {
+            'status': 'ok',
+            'event': 'subscribe',
+            'subscription': 'simple.one',
+        }
+
+        conf = TEST_CONFIG['SERVICES']['complex']
+
+        with aioresponses() as mock:
+            mock.post(conf['authorizer'], payload={'status': 'ok'})
+            mock.post(conf['before_subscribe'], payload={'status': 'ok'})
+            mock.post(conf['on_subscribe'], payload={})
+
+            await session.on_client_event({
+                'event': 'subscribe',
+                'subscription': 'complex.two',
+            })
+            assert session.client.log.pop() == {
+                'status': 'ok',
+                'event': 'subscribe',
+                'subscription': 'complex.two',
+            }
+
+        subscription_names = set(session.subscriptions.keys())
+        assert subscription_names == set(['simple.one', 'complex.two'])
+
+        await session.on_close()
+
+        assert session.subscriptions == {}
 
         await shark.shutdown()

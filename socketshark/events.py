@@ -1,9 +1,7 @@
 from . import constants as c
+from .exceptions import EventError
+from .subscription import Subscription
 from .utils import http_post
-
-
-class EventError(Exception):
-    pass
 
 
 class Event:
@@ -38,16 +36,17 @@ class Event:
         self.session = session
         self.shark = session.shark
 
-    async def send_error(self, error):
+    async def send_error(self, error, extra_data={}):
         msg = {
             'event': self.event,
             'status': 'error',
             'error': error
         }
         msg.update(self.extra_data)
+        msg.update(extra_data)
         await self.session.send(msg)
 
-    async def send_ok(self, data=None):
+    async def send_ok(self, data=None, extra_data={}):
         msg = {
             'event': self.event,
             'status': 'ok',
@@ -55,6 +54,7 @@ class Event:
         msg.update(self.extra_data)
         if data is not None:
             msg['data'] = data
+        msg.update(extra_data)
         await self.session.send(msg)
 
     async def full_process(self):
@@ -117,133 +117,41 @@ class AuthEvent(Event):
 class SubscriptionEvent(Event):
     def __init__(self, session, data):
         super().__init__(session, data)
-        self.subscription = data.get('subscription') or ''
-        if '.' in self.subscription:
-            self.service, self.topic = self.subscription.split('.', 1)
+        subscription_name = data.get('subscription') or None
+        self.subscription_name = subscription_name
+        if subscription_name in self.session.subscriptions:
+            self.subscription = self.session.subscriptions[subscription_name]
         else:
-            self.service, self.topic = (None, None)
-        if self.service in self.config['SERVICES']:
-            self.service_config = self.config['SERVICES'][self.service]
-            extra_fields = self.service_config.get('extra_fields', [])
-            self.extra_data = {field: data[field] for field in extra_fields
-                               if field in data}
-        else:
-            self.service_config = None
-            self.extra_data = {}
+            self.subscription = Subscription(self.config, session, data)
+        self.extra_data = self.subscription.extra_data
 
-    def prepare_service_data(self):
-        """
-        Returns a data dict to be sent to the service handler.
-        """
-        data = {'subscription': self.subscription}
-        data.update(self.extra_data)
-        data.update(self.session.auth_info)
-        return data
+    async def send_error(self, error):
+        await super().send_error(error, extra_data={
+            'subscription': self.subscription_name,
+        } if self.subscription_name else {})
+
+    async def send_ok(self, data=None):
+        await super().send_ok(data=data, extra_data={
+            'subscription': self.subscription_name,
+        } if self.subscription_name else {})
 
     async def process(self):
-        if not self.service or not self.topic:
-            raise EventError(c.ERR_INVALID_SUBSCRIPTION_FORMAT)
-
-        if self.service_config is None:
-            raise EventError(c.ERR_INVALID_SERVICE)
-
-    async def perform_service_request(self, service_event, extra_data={},
-                                      error_message=None, raise_error=True):
-        if service_event in self.service_config:
-            url = self.service_config[service_event]
-            data = self.prepare_service_data()
-            data.update(extra_data)
-            result = await http_post(self.shark, url, data)
-            if raise_error and result.get('status') != 'ok':
-                raise EventError(result.get('error', error_message or
-                                            c.ERR_UNHANDLED_EXCEPTION))
-            return result
-        return {'status': 'ok'}
+        self.subscription.validate()
 
 
 class SubscribeEvent(SubscriptionEvent):
-    async def authorize_subscription(self):
-        await self.perform_service_request('authorizer',
-                                           error_message=c.ERR_UNAUTHORIZED)
-
-    async def before_subscribe(self):
-        return await self.perform_service_request('before_subscribe')
-
-    async def on_subscribe(self):
-        return await self.perform_service_request('on_subscribe',
-                                                  raise_error=False)
-
     async def process(self):
         await super().process()
-
-        require_authentication = self.service_config.get(
-            'require_authentication', True)
-
-        if require_authentication and not self.session.auth_info:
-            raise EventError(c.ERR_AUTH_REQUIRED)
-
-        if self.subscription in self.session.subscriptions:
-            raise EventError(c.ERR_ALREADY_SUBSCRIBED)
-
-        await self.authorize_subscription()
-
-        await self.shark.service_receiver.add_provisional_subscription(
-            self.session, self.subscription)
-
-        result = await self.before_subscribe()
-
-        self.session.subscriptions.add(self.subscription)
-        self.session.extra_data[self.subscription] = self.extra_data
-        await self.send_ok(result.get('data'))
-
-        await self.shark.service_receiver.confirm_subscription(
-            self.session, self.subscription)
-
-        await self.on_subscribe()
-
-
-class UnsubscribeEvent(SubscriptionEvent):
-    async def before_unsubscribe(self):
-        return await self.perform_service_request('before_unsubscribe')
-
-    async def on_unsubscribe(self):
-        return await self.perform_service_request('on_unsubscribe',
-                                                  raise_error=False)
-
-    async def process(self):
-        await super().process()
-
-        if self.subscription not in self.session.subscriptions:
-            raise EventError(c.ERR_SUBSCRIPTION_NOT_FOUND)
-
-        self.extra_data = self.session.extra_data[self.subscription]
-
-        result = await self.before_unsubscribe()
-
-        self.session.subscriptions.remove(self.subscription)
-        del self.session.extra_data[self.subscription]
-        await self.shark.service_receiver.delete_subscription(
-            self.session, self.subscription)
-        await self.send_ok(result.get('data'))
-
-        await self.on_unsubscribe()
+        await self.subscription.subscribe(self)
 
 
 class MessageEvent(SubscriptionEvent):
-    async def on_message(self):
-        return await self.perform_service_request('on_message', extra_data={
-            # Message data
-            'data': self.data.get('data')
-        })
-
     async def process(self):
         await super().process()
+        await self.subscription.message(self)
 
-        if self.subscription not in self.session.subscriptions:
-            raise EventError(c.ERR_SUBSCRIPTION_NOT_FOUND)
 
-        self.extra_data = self.session.extra_data[self.subscription]
-
-        result = await self.on_message()
-        if 'data' in result:
-            await self.send_ok(result['data'])
+class UnsubscribeEvent(SubscriptionEvent):
+    async def process(self):
+        await super().process()
+        await self.subscription.unsubscribe(self)

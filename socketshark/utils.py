@@ -19,6 +19,7 @@ async def http_post(shark, url, data):
             if n > 0:
                 await asyncio.sleep(opts['wait'])
             try:
+                shark.log.debug('http request', url=url, data=data)
                 async with session.post(url, json=data,
                                         timeout=opts['timeout']) as resp:
                     data = await resp.json()

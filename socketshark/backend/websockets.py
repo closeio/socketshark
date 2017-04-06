@@ -3,25 +3,39 @@ import json
 
 import websockets
 
+from .. import constants as c
 from ..session import Session
 
 
 class Client:
     def __init__(self, shark, websocket):
         self.websocket = websocket
-        self.session = Session(shark, self)
+        self.session = Session(shark, self, info={
+            'remote': websocket.remote_address,
+        })
 
     async def consumer_handler(self):
         try:
             while True:
                 event = await self.websocket.recv()
-                await self.session.on_client_event(json.loads(event))
+                try:
+                    data = json.loads(event)
+                except json.decoder.JSONDecodeError:
+                    self.session.log.warn('received invalid json')
+                    await self.send({
+                        "status": "error",
+                        "error": c.ERR_INVALID_EVENT,
+                    })
+                else:
+                    await self.session.on_client_event(data)
         except websockets.ConnectionClosed:
-            print('closed')
-            # TODO: handle this
+            await self.session.on_close()
 
     async def send(self, event):
-        await self.websocket.send(json.dumps(event))
+        try:
+            await self.websocket.send(json.dumps(event))
+        except websockets.ConnectionClosed:
+            self.session.log.warn('attempted to send to closed socket')
 
 
 def run(shark):
