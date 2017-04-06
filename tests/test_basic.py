@@ -1,14 +1,17 @@
 import asyncio
+import json
 
+import aiohttp
 import aioredis
 from aioresponses import aioresponses
 import pytest
 
-from socketshark import constants as c, SocketShark
+from socketshark import constants as c, load_backend, SocketShark
 from socketshark.session import Session
 
 
 TEST_CONFIG = {
+    'BACKEND': 'websockets',
     'WS_HOST': '127.0.0.1',
     'WS_PORT': 9001,
     'REDIS': {
@@ -52,6 +55,10 @@ TEST_CONFIG = {
             'on_unsubscribe': 'http://my-service/on_unsubscribe/',
             'on_message': 'http://my-service/on_message/',
         },
+        'ws_test': {
+            'require_authentication': False,
+            'on_unsubscribe': 'http://my-service/on_unsubscribe/',
+        },
     },
 }
 
@@ -73,6 +80,9 @@ class TestShark:
 
 
 class TestSession:
+    """
+    Main test cases involving the Session class.
+    """
     async def _auth_session(self, session):
         with aioresponses() as mock:
             # Mock auth endpoint
@@ -998,3 +1008,75 @@ class TestSession:
         assert session.subscriptions == {}
 
         await shark.shutdown()
+
+
+class TestWebsocket:
+    """
+    Test an actual WebSocket connection.
+    """
+
+    def test_websocket(self):
+        shark = SocketShark(TEST_CONFIG)
+
+        done = False
+
+        async def task():
+            nonlocal done
+
+            # Wait until backend is ready.
+            await asyncio.sleep(0.1)
+
+            aiosession = aiohttp.ClientSession()
+            mock = aioresponses()
+            conf = TEST_CONFIG['SERVICES']['ws_test']
+            ws_url = 'http://{}:{}'.format(TEST_CONFIG['WS_HOST'],
+                                           TEST_CONFIG['WS_PORT'])
+            async with aiosession.ws_connect(ws_url) as ws:
+                await ws.send_str(json.dumps({
+                    'event': 'subscribe',
+                    'subscription': 'ws_test.hello',
+                }))
+                msg = await ws.receive()
+                assert msg.type == aiohttp.WSMsgType.TEXT
+                data = json.loads(msg.data)
+                assert data == {
+                    'event': 'subscribe',
+                    'subscription': 'ws_test.hello',
+                    'status': 'ok',
+                }
+
+                # Start mocking here (if we started mocking earlier we wouldn't
+                # be able to use aiohttp to connect to the WebSocket).
+                mock.start()
+                mock.post(conf['on_unsubscribe'], payload={})
+
+            # Wait until backend learns about the disconnected WebSocket.
+            await asyncio.sleep(0.1)
+            mock.stop()
+            requests = mock.requests[('POST', conf['on_unsubscribe'])]
+            assert len(requests) == 1
+            assert requests[0].kwargs['json'] == {
+                'subscription': 'ws_test.hello'}
+
+            await shark.shutdown()
+
+            # TODO: have a clean way to shut down
+            loop = asyncio.get_event_loop()
+            loop.stop()
+
+            done = True
+
+        # Workaround for https://github.com/pytest-dev/pytest-asyncio/issues/29
+        if asyncio.get_event_loop().is_closed():
+            asyncio.set_event_loop(asyncio.new_event_loop())
+
+        shark = SocketShark(TEST_CONFIG)
+        backend = load_backend(TEST_CONFIG)
+        asyncio.ensure_future(task())
+        try:
+            backend.run(shark)
+        except RuntimeError:
+            # TODO: have a clean way to shut down
+            pass
+
+        assert done
