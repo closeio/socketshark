@@ -91,7 +91,7 @@ Authentication
 
 WebSockets clients can authenticate using the ``auth`` event using ticket
 authentication. For more information about ticket authentication see the
-`Authentication`_ section.
+`Ticket-based authentication for session-based apps`_ section.
 
 The ``auth`` event takes an optional ``method`` (``ticket`` is the only
 currently supported authentication method, and the default), and a ``ticket``
