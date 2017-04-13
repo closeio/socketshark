@@ -22,6 +22,7 @@ class Session:
         self.log.debug('new session', **info)
         self.subscriptions = {}  # dict of Subscription objects by name
         self.active = True
+        shark.sessions.add(self)
 
     async def on_client_event(self, data):
         """
@@ -70,6 +71,15 @@ class Session:
         """
         await self.client.send(data)
 
+    async def close(self):
+        if self.active:
+            self.log.info('closing connection')
+            self.active = False
+            await self.client.close()
+            self.log.info('closed connection')
+        else:
+            self.log.info('connection already closing')
+
     async def on_close(self):
         """
         Called by the WebSocket backend to indicate the connection was closed.
@@ -77,6 +87,7 @@ class Session:
         self.active = False
         self.log.info('connection closed')
         await self.unsubscribe_all()
+        self.shark.sessions.remove(self)
 
     async def unsubscribe_all(self):
         """

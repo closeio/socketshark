@@ -37,16 +37,26 @@ class Client:
         except websockets.ConnectionClosed:
             self.session.log.warn('attempted to send to closed socket')
 
+    async def close(self):
+        await self.websocket.close()
+
 
 def run(shark):
     async def serve(websocket, path):
         client = Client(shark, websocket)
         await client.consumer_handler()
 
+    async def shutdown_server():
+        server.close()
+        await server.wait_closed()
+
     config = shark.config
     loop = asyncio.get_event_loop()
     loop.run_until_complete(shark.prepare())
     start_server = websockets.serve(serve, config['WS_HOST'], config['WS_PORT'])
-    loop.run_until_complete(start_server)
-    loop.run_until_complete(shark.run_service_receiver())
+    server = loop.run_until_complete(start_server)
+    shark.signal_ready()
+    loop.run_until_complete(shark.run())
     loop.run_forever()
+    loop.run_until_complete(shutdown_server())
+    shark.signal_shutdown()

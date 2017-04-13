@@ -25,6 +25,9 @@ class ServiceReceiver:
         self.redis = shark.redis
         self.redis_receiver = redis_receiver
 
+        # We use a special channel to pass the stop message to the reader.
+        self._stop_channel = self.redis_receiver.channel('_internal')
+
     def _channel(self, name):
         return self.redis_channel_prefix + name
 
@@ -32,8 +35,12 @@ class ServiceReceiver:
         prefix_length = len(self.redis_channel_prefix)
         if once and not self.redis_receiver._queue.qsize():
             return False
-        while (await self.redis_receiver.wait_message()):
-            channel, msg = await self.redis_receiver.get()
+
+        while True:
+            data = await self.redis_receiver.get()
+            channel, msg = data
+            if channel == self._stop_channel:
+                break
             subscription = channel.name.decode()[prefix_length:]
             try:
                 data = json.loads(msg.decode())
@@ -45,7 +52,10 @@ class ServiceReceiver:
                 self.shark.log.exception('JSONDecodeError', exc_info=True)
             if once and not self.redis_receiver._queue.qsize():
                 return True
+
         # TODO: handle other exceptions here
+
+        self.redis_receiver.stop()
 
     async def add_provisional_subscription(self, session, subscription):
         if subscription not in self.subscriptions:
@@ -82,3 +92,6 @@ class ServiceReceiver:
         if not conf_set and not prov_set:
             self.subscriptions.remove(subscription)
             await self.redis.unsubscribe(self._channel(subscription))
+
+    async def stop(self):
+        self._stop_channel.put_nowait(None)

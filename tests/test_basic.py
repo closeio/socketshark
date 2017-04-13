@@ -64,11 +64,15 @@ TEST_CONFIG = {
 
 
 class MockClient:
-    def __init__(self):
+    def __init__(self, shark):
         self.log = []
+        self.session = Session(shark, self)
 
     async def send(self, event):
         self.log.append(event)
+
+    async def close(self):
+        await self.session.on_close()
 
 
 class TestShark:
@@ -113,8 +117,8 @@ class TestSession:
         Test basic validation of event messages.
         """
         shark = SocketShark(TEST_CONFIG)
-        client = MockClient()
-        session = Session(shark, client)
+        client = MockClient(shark)
+        session = client.session
 
         await session.on_client_event(None)
         assert client.log.pop() == {
@@ -162,8 +166,8 @@ class TestSession:
         Test invalid authentication method
         """
         shark = SocketShark(TEST_CONFIG)
-        client = MockClient()
-        session = Session(shark, client)
+        client = MockClient(shark)
+        session = client.session
 
         await session.on_client_event({'event': 'auth', 'method': 'x'})
         assert client.log.pop() == {
@@ -192,8 +196,8 @@ class TestSession:
         Test ticket authentication.
         """
         shark = SocketShark(TEST_CONFIG)
-        client = MockClient()
-        session = Session(shark, client)
+        client = MockClient(shark)
+        session = client.session
 
         await session.on_client_event({'event': 'auth'})
         assert client.log.pop() == {
@@ -291,8 +295,8 @@ class TestSession:
         Test subscription validation
         """
         shark = SocketShark(TEST_CONFIG)
-        client = MockClient()
-        session = Session(shark, client)
+        client = MockClient(shark)
+        session = client.session
 
         await session.on_client_event({
             'event': 'subscribe',
@@ -333,8 +337,8 @@ class TestSession:
         For safety reasons, subscriptions require authentication by default.
         """
         shark = SocketShark(TEST_CONFIG)
-        client = MockClient()
-        session = Session(shark, client)
+        client = MockClient(shark)
+        session = client.session
 
         await session.on_client_event({
             'event': 'subscribe',
@@ -353,8 +357,8 @@ class TestSession:
     async def test_subscription_validation(self):
         shark = SocketShark(TEST_CONFIG)
         await shark.prepare()
-        client = MockClient()
-        session = Session(shark, client)
+        client = MockClient(shark)
+        session = client.session
 
         await session.on_client_event({
             'event': 'subscribe',
@@ -410,8 +414,8 @@ class TestSession:
         """
         shark = SocketShark(TEST_CONFIG)
         await shark.prepare()
-        client = MockClient()
-        session = Session(shark, client)
+        client = MockClient(shark)
+        session = client.session
 
         await session.on_client_event({
             'event': 'subscribe',
@@ -519,8 +523,8 @@ class TestSession:
         """
         shark = SocketShark(TEST_CONFIG)
         await shark.prepare()
-        client = MockClient()
-        session = Session(shark, client)
+        client = MockClient(shark)
+        session = client.session
 
         await session.on_client_event({
             'event': 'subscribe',
@@ -595,8 +599,8 @@ class TestSession:
     async def test_subscription_authorizer(self):
         shark = SocketShark(TEST_CONFIG)
         await shark.prepare()
-        client = MockClient()
-        session = Session(shark, client)
+        client = MockClient(shark)
+        session = client.session
 
         await session.on_client_event({
             'event': 'subscribe',
@@ -697,8 +701,8 @@ class TestSession:
     async def test_subscription_complex(self):
         shark = SocketShark(TEST_CONFIG)
         await shark.prepare()
-        client = MockClient()
-        session = Session(shark, client)
+        client = MockClient(shark)
+        session = client.session
         await self._auth_session(session)
 
         conf = TEST_CONFIG['SERVICES']['complex']
@@ -969,8 +973,8 @@ class TestSession:
     async def test_unsubscribe_on_close(self):
         shark = SocketShark(TEST_CONFIG)
         await shark.prepare()
-        client = MockClient()
-        session = Session(shark, client)
+        client = MockClient(shark)
+        session = client.session
         await self._auth_session(session)
 
         await session.on_client_event({
@@ -1015,6 +1019,11 @@ class TestWebsocket:
     Test an actual WebSocket connection.
     """
 
+    @property
+    def ws_url(self):
+        return 'http://{}:{}'.format(TEST_CONFIG['WS_HOST'],
+                                     TEST_CONFIG['WS_PORT'])
+
     def test_websocket(self):
         shark = SocketShark(TEST_CONFIG)
 
@@ -1029,9 +1038,8 @@ class TestWebsocket:
             aiosession = aiohttp.ClientSession()
             mock = aioresponses()
             conf = TEST_CONFIG['SERVICES']['ws_test']
-            ws_url = 'http://{}:{}'.format(TEST_CONFIG['WS_HOST'],
-                                           TEST_CONFIG['WS_PORT'])
-            async with aiosession.ws_connect(ws_url) as ws:
+
+            async with aiosession.ws_connect(self.ws_url) as ws:
                 await ws.send_str(json.dumps({
                     'event': 'subscribe',
                     'subscription': 'ws_test.hello',
@@ -1050,6 +1058,8 @@ class TestWebsocket:
                 mock.start()
                 mock.post(conf['on_unsubscribe'], payload={})
 
+            await aiosession.close()
+
             # Wait until backend learns about the disconnected WebSocket.
             await asyncio.sleep(0.1)
             mock.stop()
@@ -1060,23 +1070,60 @@ class TestWebsocket:
 
             await shark.shutdown()
 
-            # TODO: have a clean way to shut down
-            loop = asyncio.get_event_loop()
-            loop.stop()
-
             done = True
-
-        # Workaround for https://github.com/pytest-dev/pytest-asyncio/issues/29
-        if asyncio.get_event_loop().is_closed():
-            asyncio.set_event_loop(asyncio.new_event_loop())
 
         shark = SocketShark(TEST_CONFIG)
         backend = load_backend(TEST_CONFIG)
         asyncio.ensure_future(task())
-        try:
-            backend.run(shark)
-        except RuntimeError:
-            # TODO: have a clean way to shut down
-            pass
+        backend.run(shark)
 
         assert done
+
+    def test_shutdown(self):
+        """
+        Make sure we call unsubscribe callbacks when shutting down.
+        """
+        mock = aioresponses()
+        conf = TEST_CONFIG['SERVICES']['ws_test']
+
+        async def task():
+            # Wait until backend is ready.
+            await asyncio.sleep(0.1)
+
+            aiosession = aiohttp.ClientSession()
+
+            async with aiosession.ws_connect(self.ws_url) as ws:
+                await ws.send_str(json.dumps({
+                    'event': 'subscribe',
+                    'subscription': 'ws_test.hello',
+                }))
+                msg = await ws.receive()
+                assert msg.type == aiohttp.WSMsgType.TEXT
+                data = json.loads(msg.data)
+                assert data == {
+                    'event': 'subscribe',
+                    'subscription': 'ws_test.hello',
+                    'status': 'ok',
+                }
+
+                mock.start()
+                mock.post(conf['on_unsubscribe'], payload={})
+
+                # Shutdown
+                asyncio.ensure_future(shark.shutdown())
+
+                msg = await ws.receive()
+                assert msg.type == aiohttp.WSMsgType.CLOSE
+                await ws.close()
+
+            await aiosession.close()
+
+        shark = SocketShark(TEST_CONFIG)
+        backend = load_backend(TEST_CONFIG)
+        asyncio.ensure_future(task())
+        backend.run(shark)
+
+        requests = mock.requests[('POST', conf['on_unsubscribe'])]
+        assert len(requests) == 1
+        assert requests[0].kwargs['json'] == {
+                'subscription': 'ws_test.hello'}
