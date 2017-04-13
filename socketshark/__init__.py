@@ -86,7 +86,7 @@ class SocketShark:
         # Wait for all sessions to close
         while self.sessions:
             self.log.info('waiting for sessions to close',
-                    n_sessions=len(self.sessions))
+                          n_sessions=len(self.sessions))
             await asyncio.sleep(1)
 
         await self.service_receiver.stop()
