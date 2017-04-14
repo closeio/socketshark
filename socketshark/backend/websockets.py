@@ -38,7 +38,8 @@ class Client:
                 ping = await self.websocket.ping()
             except websockets.ConnectionClosed:
                 return
-            timeout_handler = asyncio.ensure_future(self.ping_timeout_handler(ping))
+            timeout_handler = asyncio.ensure_future(
+                    self.ping_timeout_handler(ping))
             await ping
             latency = time.time() - start_time
             self.session.log.debug('pong', latency=round(latency, 3))
