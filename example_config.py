@@ -12,6 +12,14 @@ LOG = {
 WS_HOST = '0.0.0.0'
 WS_PORT = '9000'
 
+WS_PING = {
+    # How often to ping WebSocket connections in seconds (None to not ping)
+    'interval': 15,
+
+    # Seconds after which we disconnect clients with no ping response.
+    'timeout': 15,
+}
+
 # HTTP options when querying services.
 HTTP = {
     # Optional path to custom CA file.

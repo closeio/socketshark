@@ -14,6 +14,7 @@ TEST_CONFIG = {
     'BACKEND': 'websockets',
     'WS_HOST': '127.0.0.1',
     'WS_PORT': 9001,
+    'WS_PING': {'interval': 0.1, 'timeout': 0.1},
     'REDIS': {
         'host': 'localhost',
         'port': 6379,
@@ -1122,8 +1123,44 @@ class TestWebsocket:
         backend = load_backend(TEST_CONFIG)
         asyncio.ensure_future(task())
         backend.run(shark)
+        mock.stop()
 
         requests = mock.requests[('POST', conf['on_unsubscribe'])]
         assert len(requests) == 1
         assert requests[0].kwargs['json'] == {
                 'subscription': 'ws_test.hello'}
+
+    def test_ping(self):
+        async def task():
+            # Wait until backend is ready.
+            await asyncio.sleep(0.1)
+
+            aiosession = aiohttp.ClientSession()
+
+            async with aiosession.ws_connect(self.ws_url,
+                    autoping=False) as ws:
+
+                # Respond to ping in time
+                msg = await ws.receive()
+                assert msg.type == aiohttp.WSMsgType.PING
+                ws.pong(msg.data)
+
+                # Respond to ping late
+                msg = await ws.receive()
+                assert msg.type == aiohttp.WSMsgType.PING
+                await asyncio.sleep(0.1)
+                ws.pong(msg.data)
+
+                # Ensure we get disconnected
+                msg = await ws.receive()
+                assert msg.type == aiohttp.WSMsgType.CLOSE
+
+                await ws.close()
+
+            await aiosession.close()
+            asyncio.ensure_future(shark.shutdown())
+
+        shark = SocketShark(TEST_CONFIG)
+        backend = load_backend(TEST_CONFIG)
+        asyncio.ensure_future(task())
+        backend.run(shark)

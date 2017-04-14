@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 
 import websockets
 
@@ -13,8 +14,40 @@ class Client:
         self.session = Session(shark, self, info={
             'remote': websocket.remote_address,
         })
+        self.shark = shark
+
+    async def ping_timeout_handler(self, ping):
+        ping_timeout = self.shark.config['WS_PING']['timeout']
+        await asyncio.sleep(ping_timeout)
+        if not ping.done():
+            self.session.log.warn('ping timeout')
+            await self.close()
+            return True
+        return False
+
+    async def ping_handler(self):
+        ping_interval = self.shark.config['WS_PING']['interval']
+        if not ping_interval:
+            return
+        latency = 0
+        while True:
+            await asyncio.sleep(ping_interval - latency)
+            self.session.log.debug('ping')
+            start_time = time.time()
+            try:
+                ping = await self.websocket.ping()
+            except websockets.ConnectionClosed:
+                return
+            timeout_handler = asyncio.ensure_future(self.ping_timeout_handler(ping))
+            await ping
+            latency = time.time() - start_time
+            self.session.log.debug('pong', latency=round(latency, 3))
+            # Return immediately if a ping timeout occurred.
+            if not timeout_handler.cancel() and timeout_handler.result():
+                return
 
     async def consumer_handler(self):
+        ping_handler = asyncio.ensure_future(self.ping_handler())
         try:
             while True:
                 event = await self.websocket.recv()
@@ -30,6 +63,8 @@ class Client:
                     await self.session.on_client_event(data)
         except websockets.ConnectionClosed:
             await self.session.on_close()
+
+        ping_handler.cancel()
 
     async def send(self, event):
         try:
