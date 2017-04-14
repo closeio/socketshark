@@ -55,15 +55,32 @@ class SocketShark:
         """
         self.log.info('done')
 
+    async def _redis_connection_handler(self):
+        await self.redis.wait_closed()
+
+        self.log.error('redis unexpectedly closed')
+
+        # Since we rely on PUBSUB channels, we disconnect all clients when
+        # Redis goes down so they can reconnect and restore subscriptions.
+        asyncio.ensure_future(self.shutdown())
+
     async def prepare(self):
         redis_receiver = Receiver(loop=asyncio.get_event_loop())
         redis_settings = self.config['REDIS']
-        self.redis = await aioredis.create_redis((
-            redis_settings['host'], redis_settings['port']))
+        try:
+            self.redis = await aioredis.create_redis((
+                redis_settings['host'], redis_settings['port']))
+        except (OSError, aioredis.RedisError):
+            self.log.exception('could not connect to redis', exc_info=True)
+            raise
+
+        self._redis_connection_handler_task = asyncio.ensure_future(
+                self._redis_connection_handler())
 
         self.service_receiver = ServiceReceiver(self, redis_receiver)
 
     def _cleanup(self):
+        self._redis_connection_handler_task.cancel()
         self.redis.close()
 
     async def shutdown(self):
@@ -114,7 +131,6 @@ class SocketShark:
         """
         SocketShark main coroutine.
         """
-
         self._install_signal_handlers()
         self._task = asyncio.ensure_future(self._run())
 

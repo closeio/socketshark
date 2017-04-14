@@ -1,3 +1,4 @@
+from . import constants as c
 from .events import Event
 
 
@@ -31,7 +32,15 @@ class Session:
         """
         assert self.active
         self.log.debug('client event', data=data)
-        await Event.from_data(self, data).full_process()
+        event = Event.from_data(self, data)
+        try:
+            await event.full_process()
+        except:
+            self.shark.log.exception('unhandled event processing exception',
+                                     exc_info=True)
+            await event.send_error(c.ERR_UNHANDLED_EXCEPTION)
+            await self.close()
+            raise
 
     async def on_service_event(self, data):
         """
@@ -76,7 +85,6 @@ class Session:
             self.log.info('closing connection')
             self.active = False
             await self.client.close()
-            self.log.info('closed connection')
         else:
             self.log.info('connection already closing')
 

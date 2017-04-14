@@ -1131,6 +1131,9 @@ class TestWebsocket:
                 'subscription': 'ws_test.hello'}
 
     def test_ping(self):
+        """
+        Ensure server sends periodic pings and disconnects timed out clients.
+        """
         async def task():
             # Wait until backend is ready.
             await asyncio.sleep(0.1)
@@ -1159,6 +1162,46 @@ class TestWebsocket:
 
             await aiosession.close()
             asyncio.ensure_future(shark.shutdown())
+
+        shark = SocketShark(TEST_CONFIG)
+        backend = load_backend(TEST_CONFIG)
+        asyncio.ensure_future(task())
+        backend.run(shark)
+
+    def test_redis_disconnect(self):
+        """
+        Ensure server disconnects clients when Redis connection closes.
+        """
+        async def task():
+            # Wait until backend is ready.
+            await asyncio.sleep(0.1)
+
+            aiosession = aiohttp.ClientSession()
+
+            ws1 = await aiosession.ws_connect(self.ws_url)
+            ws2 = await aiosession.ws_connect(self.ws_url)
+            await ws2.send_str(json.dumps({
+                'event': 'subscribe',
+                'subscription': 'simple.hello',
+            }))
+            msg = await ws2.receive()
+            assert msg.type == aiohttp.WSMsgType.TEXT
+            data = json.loads(msg.data)
+            assert data == {
+                'event': 'subscribe',
+                'subscription': 'simple.hello',
+                'status': 'ok',
+            }
+
+            shark.redis.close()
+
+            msg = await ws1.receive()
+            assert msg.type == aiohttp.WSMsgType.CLOSE
+
+            msg = await ws2.receive()
+            assert msg.type == aiohttp.WSMsgType.CLOSE
+
+            await aiosession.close()
 
         shark = SocketShark(TEST_CONFIG)
         backend = load_backend(TEST_CONFIG)

@@ -53,8 +53,6 @@ class ServiceReceiver:
             if once and not self.redis_receiver._queue.qsize():
                 return True
 
-        # TODO: handle other exceptions here
-
         self.redis_receiver.stop()
 
     async def add_provisional_subscription(self, session, subscription):
@@ -91,7 +89,8 @@ class ServiceReceiver:
 
         if not conf_set and not prov_set:
             self.subscriptions.remove(subscription)
-            await self.redis.unsubscribe(self._channel(subscription))
+            if not self.redis.closed:
+                await self.redis.unsubscribe(self._channel(subscription))
 
     async def stop(self):
         self._stop_channel.put_nowait(None)

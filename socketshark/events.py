@@ -62,10 +62,6 @@ class Event:
             await self.process()
         except EventError as e:
             await self.send_error(str(e))
-        except:
-            self.shark.log.exception('unhandled exception', exc_info=True)
-            await self.send_error(c.ERR_UNHANDLED_EXCEPTION)
-            raise
 
 
 class InvalidEvent:
