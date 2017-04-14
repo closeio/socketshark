@@ -1138,7 +1138,7 @@ class TestWebsocket:
             aiosession = aiohttp.ClientSession()
 
             async with aiosession.ws_connect(self.ws_url,
-                    autoping=False) as ws:
+                                             autoping=False) as ws:
 
                 # Respond to ping in time
                 msg = await ws.receive()
