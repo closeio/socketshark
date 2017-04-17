@@ -10,6 +10,7 @@ from aioredis.pubsub import Receiver
 import click
 import structlog
 
+from . import config_defaults
 from .receiver import ServiceReceiver
 
 
@@ -156,11 +157,23 @@ class SocketShark:
 
 
 def load_config(config_name):
-    obj = importlib.import_module(config_name)
     config = {}
-    for key in dir(obj):
+
+    # Get config defaults
+    for key in dir(config_defaults):
         if key.isupper():
-            config[key] = getattr(obj, key)
+            config[key] = getattr(config_defaults, key)
+
+    # Merge given config with defaults
+    obj = importlib.import_module(config_name)
+    for key in dir(obj):
+        if key in config:
+            value = getattr(obj, key)
+            if isinstance(config[key], dict):
+                config[key].update(value)
+            else:
+                config[key] = value
+
     return config
 
 

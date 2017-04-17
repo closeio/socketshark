@@ -9,7 +9,7 @@ from . import constants as c
 
 async def http_post(shark, url, data):
     opts = shark.config['HTTP']
-    if 'ssl_cafile' in opts:
+    if opts.get('ssl_cafile'):
         ssl_context = ssl.create_default_context(cafile=opts['ssl_cafile'])
     else:
         ssl_context = None
