@@ -4,6 +4,7 @@ appdirs==1.4.3
 async-timeout==1.2.0
 chardet==2.3.0
 click==6.7
+colorama==0.3.7
 hiredis==0.2.0
 multidict==2.1.4
 packaging==16.8
