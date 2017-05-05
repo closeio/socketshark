@@ -12,6 +12,10 @@ LOG = {
 # Host and port to bind WebSockets.
 WS_HOST = '127.0.0.1'
 WS_PORT = '9000'
+WS_SSL = {
+    # 'cert': '/path/to/ssl.crt',
+    # 'key': '/path/to/ssl.key',
+}
 
 WS_PING = {
     # How often to ping WebSocket connections in seconds (None to not ping).

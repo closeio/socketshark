@@ -47,8 +47,10 @@ class SocketShark:
         """
         Called by the backend to notify that the backend is ready.
         """
-        self.log.info('🦈  ready', host=self.config['WS_HOST'],
-                      port=self.config['WS_PORT'])
+        self.log.info('🦈  ready',
+                      host=self.config['WS_HOST'],
+                      port=self.config['WS_PORT'],
+                      secure=bool(self.config.get('WS_SSL')))
 
     def signal_shutdown(self):
         """
@@ -154,6 +156,15 @@ class SocketShark:
         loop = asyncio.get_event_loop()
         loop.remove_signal_handler(signal.SIGINT)
         loop.remove_signal_handler(signal.SIGTERM)
+
+    def get_ssl_context(self):
+        ssl_settings = self.config.get('WS_SSL')
+        if ssl_settings:
+            import ssl
+            ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+            ssl_context.load_cert_chain(certfile=ssl_settings['cert'],
+                                        keyfile=ssl_settings['key'])
+            return ssl_context
 
 
 def load_config(config_name):

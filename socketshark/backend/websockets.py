@@ -89,7 +89,11 @@ def run(shark):
     config = shark.config
     loop = asyncio.get_event_loop()
     loop.run_until_complete(shark.prepare())
-    start_server = websockets.serve(serve, config['WS_HOST'], config['WS_PORT'])
+    ssl_context = shark.get_ssl_context()
+    start_server = websockets.serve(serve,
+                                    config['WS_HOST'],
+                                    config['WS_PORT'],
+                                    ssl=ssl_context)
     server = loop.run_until_complete(start_server)
     shark.signal_ready()
     loop.run_until_complete(shark.run())
