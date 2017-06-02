@@ -8,7 +8,7 @@ class Metrics:
     def __init__(self, shark):
         self.shark = shark
         metrics_config = shark.config['METRICS']
-        self.providers = { # provider_name -> provider_instance
+        self.providers = {  # provider_name -> provider_instance
             provider: self._get_provider(provider, settings)
             for provider, settings in metrics_config.items()
         }

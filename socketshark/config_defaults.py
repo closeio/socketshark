@@ -11,10 +11,10 @@ LOG = {
 
 METRICS = {
     # Set a port to enable Prometheus integration
-    #'prometheus': {
-    #    'host': '',
-    #    'port': None,
-    #}
+    # 'prometheus': {
+    #     'host': '',
+    #     'port': None,
+    # }
 }
 
 # Host and port to bind WebSockets.

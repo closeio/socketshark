@@ -1,6 +1,8 @@
 import asyncio
+
 from prometheus_async.aio.web import start_http_server
 from prometheus_client import Gauge
+
 
 class PrometheusMetrics:
     """
@@ -9,8 +11,10 @@ class PrometheusMetrics:
     def __init__(self, shark, config):
         self.ready_gauge = Gauge('service_state', 'Service status')
         self.connection_count = Gauge('connection_count', 'Connection count')
-        self.event_success_counter = Gauge('event_success_counter', 'Event success counter')
-        self.event_error_counter = Gauge('event_error_counter', 'Event error counter', ['event'])
+        self.event_success_counter = Gauge('event_success_counter',
+                                           'Event success counter')
+        self.event_error_counter = Gauge('event_error_counter',
+                                         'Event error counter', ['event'])
         self.config = config
         assert 'port' in self.config
 
