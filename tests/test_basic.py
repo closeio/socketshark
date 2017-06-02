@@ -15,6 +15,7 @@ TEST_CONFIG = {
     'WS_HOST': '127.0.0.1',
     'WS_PORT': 9001,
     'WS_PING': {'interval': 0.1, 'timeout': 0.1},
+    'METRICS': {},
     'REDIS': {
         'host': 'localhost',
         'port': 6379,
