@@ -16,7 +16,6 @@ class PrometheusMetrics:
 
     def initialize(self):
         # Run Prometheus but don't fail hard if it doesn't start.
-        # Note that if this wasn't an async function, binding would fail.
         asyncio.ensure_future(start_http_server(
             addr=self.config.get('host', ''),
             port=self.config['port']))
