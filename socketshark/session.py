@@ -1,5 +1,5 @@
 from . import constants as c
-from .events import Event
+from .events import Event, InvalidEvent, UnknownEvent
 
 
 class Session:
@@ -24,6 +24,7 @@ class Session:
         self.subscriptions = {}  # dict of Subscription objects by name
         self.active = True
         shark.sessions.add(self)
+        shark.metrics.set_connection_count(len(shark.sessions))
 
     async def on_client_event(self, data):
         """
@@ -34,7 +35,16 @@ class Session:
         self.log.debug('client event', data=data)
         event = Event.from_data(self, data)
         try:
-            await event.full_process()
+            result = await event.full_process()
+
+            # Don't log invalid/unknown event names
+            if isinstance(event, InvalidEvent):
+                event_name = 'invalid'
+            elif isinstance(event, UnknownEvent):
+                event_name = 'unknown'
+            else:
+                event_name = event.event
+            self.shark.metrics.log_event(event_name, result)
         except:
             self.shark.log.exception('unhandled event processing exception',
                                      exc_info=True)
@@ -96,6 +106,7 @@ class Session:
         self.log.info('connection closed')
         await self.unsubscribe_all()
         self.shark.sessions.remove(self)
+        self.shark.metrics.set_connection_count(len(self.shark.sessions))
 
     async def unsubscribe_all(self):
         """
