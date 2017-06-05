@@ -14,7 +14,10 @@ METRICS = {
     # 'prometheus': {
     #     'host': '',
     #     'port': None,
-    # }
+    # },
+
+    # Log all metrics
+    # 'log': {},
 }
 
 # Host and port to bind WebSockets.

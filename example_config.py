@@ -11,6 +11,13 @@ REDIS = {
     'port': 6379,
 }
 
+# Optional metrics reporting with Prometheus
+METRICS = {
+    'prometheus': {
+        'port': 9090,
+    }
+}
+
 # Authentication (currently only "ticket" authentication is supported)
 AUTHENTICATION = {
     'ticket': {
