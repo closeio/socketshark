@@ -9,12 +9,11 @@ class PrometheusMetrics:
     Prometheus metrics provider.
     """
     def __init__(self, shark, config):
-        self.ready_gauge = Gauge('service_state', 'Service status')
-        self.connection_count = Gauge('connection_count', 'Connection count')
-        self.event_success_counter = Gauge('event_success_counter',
-                                           'Event success counter')
-        self.event_error_counter = Gauge('event_error_counter',
-                                         'Event error counter', ['event'])
+        self.ready_gauge = Gauge('socketshark_service_state', 'Service status')
+        self.connection_count = Gauge('socketshark_connection_count', 'Connection count')
+        self.event_counter = Gauge('socketshark_event_success_counter',
+                                   'Event success counter', ['event', 'status'])
+
         self.config = config
         assert 'port' in self.config
 
@@ -32,6 +31,6 @@ class PrometheusMetrics:
 
     def log_event(self, event, success):
         if success:
-            self.event_success_counter.labels(event=event).inc()
+            self.event_counter.labels(event=event, status='success').inc()
         else:
-            self.event_error_counter.labels(event=event).inc()
+            self.event_counter.labels(event=event, status='error').inc()
