@@ -14,10 +14,10 @@ class LogMetrics:
 
     def increase_connection_count(self):
         self.connection_count += 1
-        self.shark.log.debug('metrics', count=self.connection_count)
+        self.shark.log.debug('metrics', total_connections=self.connection_count)
 
     def set_active_connection_count(self, count):
-        self.shark.log.debug('metrics', connection_count=count)
+        self.shark.log.debug('metrics', active_connections=count)
 
     def log_event(self, event, success):
         self.shark.log.debug('metrics', evt=event, success=success)
