@@ -1,7 +1,7 @@
 import asyncio
 
 from prometheus_async.aio.web import start_http_server
-from prometheus_client import Gauge
+from prometheus_client import Counter, Gauge
 
 
 class PrometheusMetrics:
@@ -10,7 +10,10 @@ class PrometheusMetrics:
     """
     def __init__(self, shark, config):
         self.ready_gauge = Gauge('socketshark_service_state', 'Service status')
-        self.connection_count = Gauge('socketshark_connection_count', 'Connection count')
+        self.active_connections_gauge = Gauge('socketshark_connection_count',
+                                              'Active connections')
+        self.connection_counter = Counter('socketshark_connection_total',
+                                          'Connection total')
         self.event_counter = Gauge('socketshark_event_success_counter',
                                    'Event success counter', ['event', 'status'])
 
@@ -27,7 +30,8 @@ class PrometheusMetrics:
         self.ready_gauge.set(int(ready))
 
     def set_connection_count(self, count):
-        self.connection_count.set(count)
+        self.active_connections_gauge.set(count)
+        self.connection_counter.inc()
 
     def log_event(self, event, success):
         if success:
