@@ -25,6 +25,10 @@ class Metrics:
             self.shark.log.info('initializing metrics', provider=name)
             provider.initialize()
 
+    def increase_connection_count(self):
+        for provider in self.providers.values():
+            provider.increase_connection_count()
+
     def set_ready(self, ready):
         for provider in self.providers.values():
             provider.set_ready(ready)
