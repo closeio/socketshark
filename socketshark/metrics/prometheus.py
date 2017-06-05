@@ -26,12 +26,14 @@ class PrometheusMetrics:
             addr=self.config.get('host', ''),
             port=self.config['port']))
 
+    def increase_connection_count(self):
+        self.connection_counter.inc()
+
     def set_ready(self, ready):
         self.ready_gauge.set(int(ready))
 
     def set_connection_count(self, count):
         self.active_connections_gauge.set(count)
-        self.connection_counter.inc()
 
     def log_event(self, event, success):
         if success:

@@ -25,6 +25,7 @@ class Session:
         self.active = True
         shark.sessions.add(self)
         shark.metrics.set_connection_count(len(shark.sessions))
+        shark.metrics.increase_connection_count()
 
     async def on_client_event(self, data):
         """
