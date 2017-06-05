@@ -32,7 +32,7 @@ class PrometheusMetrics:
     def set_ready(self, ready):
         self.ready_gauge.set(int(ready))
 
-    def set_connection_count(self, count):
+    def set_active_connection_count(self, count):
         self.active_connections_gauge.set(count)
 
     def log_event(self, event, success):

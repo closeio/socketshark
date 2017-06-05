@@ -33,9 +33,9 @@ class Metrics:
         for provider in self.providers.values():
             provider.set_ready(ready)
 
-    def set_connection_count(self, count):
+    def set_active_connection_count(self, count):
         for provider in self.providers.values():
-            provider.set_connection_count(count)
+            provider.set_active_connection_count(count)
 
     def log_event(self, event, success):
         for provider in self.providers.values():
