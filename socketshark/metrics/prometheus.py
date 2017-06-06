@@ -28,7 +28,6 @@ class PrometheusMetrics:
             port=self.config['port']))
 
     def decrease_connection_count(self):
-        self.connection_counter.inc()
         self.active_connections -= 1
         self.active_connections_gauge.set(self.active_connections)
 
