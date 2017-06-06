@@ -18,6 +18,7 @@ class PrometheusMetrics:
                                    'Event success counter', ['event', 'status'])
 
         self.config = config
+        self.active_connections = 0
         assert 'port' in self.config
 
     def initialize(self):
@@ -26,14 +27,18 @@ class PrometheusMetrics:
             addr=self.config.get('host', ''),
             port=self.config['port']))
 
+    def decrease_connection_count(self):
+        self.connection_counter.inc()
+        self.active_connections -= 1
+        self.active_connections_gauge.set(self.active_connections)
+
     def increase_connection_count(self):
         self.connection_counter.inc()
+        self.active_connections += 1
+        self.active_connections_gauge.set(self.active_connections)
 
     def set_ready(self, ready):
         self.ready_gauge.set(int(ready))
-
-    def set_active_connection_count(self, count):
-        self.active_connections_gauge.set(count)
 
     def log_event(self, event, success):
         if success:

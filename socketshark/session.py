@@ -24,7 +24,6 @@ class Session:
         self.subscriptions = {}  # dict of Subscription objects by name
         self.active = True
         shark.sessions.add(self)
-        shark.metrics.set_active_connection_count(len(shark.sessions))
         shark.metrics.increase_connection_count()
 
     async def on_client_event(self, data):
@@ -107,7 +106,7 @@ class Session:
         self.log.info('connection closed')
         await self.unsubscribe_all()
         self.shark.sessions.remove(self)
-        self.shark.metrics.set_active_connection_count(len(self.shark.sessions))
+        self.shark.metrics.decrease_connection_count()
 
     async def unsubscribe_all(self):
         """
