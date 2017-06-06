@@ -40,7 +40,6 @@ class Session:
                                      exc_info=True)
             await event.send_error(c.ERR_UNHANDLED_EXCEPTION)
             await self.close()
-            raise
 
     async def on_service_event(self, data):
         """
