@@ -205,4 +205,8 @@ def run(context, config):
     logging.basicConfig(format=log_config['format'], level=level)
     setup_structlog(sys.stdout.isatty())
     shark = SocketShark(config_obj)
-    backend.run(shark)
+    try:
+        backend.run(shark)
+    except Exception:
+        shark.log.exception('unhandled exception', exc_info=True)
+        raise
