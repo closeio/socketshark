@@ -58,15 +58,21 @@ class Event:
         await self.session.send(msg)
 
     async def full_process(self):
+        """
+        Fully process an event and return whether it was successful.
+        """
         try:
-            await self.process()
+            return await self.process()
         except EventError as e:
             await self.send_error(str(e))
+            return False
 
 
-class InvalidEvent:
+class InvalidEvent(Event):
     def __init__(self, session):
         self.session = session
+        self.event = None
+        self.extra_data = {}
 
     async def full_process(self):
         msg = {
@@ -74,6 +80,7 @@ class InvalidEvent:
             'error': c.ERR_INVALID_EVENT,
         }
         await self.session.send(msg)
+        return False
 
 
 class UnknownEvent(Event):
@@ -108,6 +115,7 @@ class AuthEvent(Event):
         auth_info = {field: result[field] for field in auth_fields}
         self.session.auth_info = auth_info
         await self.send_ok()
+        return True
 
 
 class SubscriptionEvent(Event):
@@ -133,21 +141,25 @@ class SubscriptionEvent(Event):
 
     async def process(self):
         self.subscription.validate()
+        return True
 
 
 class SubscribeEvent(SubscriptionEvent):
     async def process(self):
         await super().process()
         await self.subscription.subscribe(self)
+        return True
 
 
 class MessageEvent(SubscriptionEvent):
     async def process(self):
         await super().process()
         await self.subscription.message(self)
+        return True
 
 
 class UnsubscribeEvent(SubscriptionEvent):
     async def process(self):
         await super().process()
         await self.subscription.unsubscribe(self)
+        return True

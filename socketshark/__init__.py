@@ -11,6 +11,7 @@ import click
 import structlog
 
 from . import config_defaults
+from .metrics import Metrics
 from .receiver import ServiceReceiver
 
 
@@ -42,6 +43,9 @@ class SocketShark:
         self._task = None
         self._shutdown = False
         self.sessions = set()
+        self.metrics = Metrics(self)
+        self.metrics.initialize()
+        self.metrics.set_ready(False)
 
     def signal_ready(self):
         """
@@ -51,17 +55,20 @@ class SocketShark:
                       host=self.config['WS_HOST'],
                       port=self.config['WS_PORT'],
                       secure=bool(self.config.get('WS_SSL')))
+        self.metrics.set_ready(True)
 
     def signal_shutdown(self):
         """
         Called by the backend to notify that the backend shut down.
         """
         self.log.info('done')
+        self.metrics.set_ready(False)
 
     async def _redis_connection_handler(self):
         await self.redis.wait_closed()
 
         self.log.error('redis unexpectedly closed')
+        self.metrics.set_ready(False)
 
         # Since we rely on PUBSUB channels, we disconnect all clients when
         # Redis goes down so they can reconnect and restore subscriptions.

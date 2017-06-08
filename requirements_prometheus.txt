@@ -1,0 +1,3 @@
+prometheus-async==17.3.0
+prometheus-client==0.0.19
+wrapt==1.10.10

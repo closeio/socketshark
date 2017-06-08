@@ -9,6 +9,17 @@ LOG = {
     'format': '%(message)s'
 }
 
+METRICS = {
+    # Set a port to enable Prometheus integration
+    # 'prometheus': {
+    #     'host': '',
+    #     'port': None,
+    # },
+
+    # Log all metrics
+    # 'log': {},
+}
+
 # Host and port to bind WebSockets.
 WS_HOST = '127.0.0.1'
 WS_PORT = '9000'
