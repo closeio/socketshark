@@ -5,7 +5,8 @@ BACKEND = 'websockets'
 
 # Logging config
 LOG = {
-    'level': 'INFO',
+    'setup_structlog': True,
+    'level': 'INFO',  # Set to None to disable logging setup
     'format': '%(message)s'
 }
 
