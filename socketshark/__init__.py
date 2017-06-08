@@ -202,6 +202,7 @@ def run(context, config):
     backend = load_backend(config_obj)
 
     log_config = config_obj['LOG']
+
     # Configure root logger if logging level is specified in config
     if log_config['level']:
         level = getattr(logging, log_config['level'])
@@ -211,7 +212,9 @@ def run(context, config):
         sh = logging.StreamHandler()
         sh.setFormatter(formatter)
         logger.addHandler(sh)
-    setup_structlog(sys.stdout.isatty())
+
+    if log_config['setup_structlog']:
+        setup_structlog(sys.stdout.isatty())
 
     shark = SocketShark(config_obj)
     backend.run(shark)
