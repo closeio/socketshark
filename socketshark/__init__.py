@@ -200,9 +200,18 @@ def load_backend(config):
 def run(context, config):
     config_obj = load_config(config)
     backend = load_backend(config_obj)
+
     log_config = config_obj['LOG']
-    level = getattr(logging, log_config['level'])
-    logging.basicConfig(format=log_config['format'], level=level)
+    # Configure root logger if logging level is specified in config
+    if log_config['level']:
+        level = getattr(logging, log_config['level'])
+        logger = logging.getLogger()
+        logger.setLevel(level)
+        formatter = logging.Formatter(log_config['format'])
+        sh = logging.StreamHandler()
+        sh.setFormatter(formatter)
+        logger.addHandler(sh)
     setup_structlog(sys.stdout.isatty())
+
     shark = SocketShark(config_obj)
     backend.run(shark)
