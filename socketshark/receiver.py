@@ -49,7 +49,7 @@ class ServiceReceiver:
                 for session in self.provisional_subscriptions[subscription]:
                     self.provisional_events[session].append(data)
             except json.decoder.JSONDecodeError:
-                self.shark.log.exception('JSONDecodeError', exc_info=True)
+                self.shark.log.exception('JSONDecodeError')
             if once and not self.redis_receiver._queue.qsize():
                 return True
 

@@ -46,8 +46,7 @@ class Session:
                 event_name = event.event
             self.shark.metrics.log_event(event_name, result)
         except:
-            self.shark.log.exception('unhandled event processing exception',
-                                     exc_info=True)
+            self.shark.log.exception('unhandled event processing exception')
             await event.send_error(c.ERR_UNHANDLED_EXCEPTION)
             await self.close()
 

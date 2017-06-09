@@ -26,6 +26,5 @@ async def http_post(shark, url, data):
                     shark.log.debug('http response', data=data)
                     return data
             except aiohttp.ClientError:
-                shark.log.exception('unhandled exception in http_post',
-                                    exc_info=True)
+                shark.log.exception('unhandled exception in http_post')
         return {'status': 'error', 'error': c.ERR_SERVICE_UNAVAILABLE}

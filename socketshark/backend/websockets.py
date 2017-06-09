@@ -48,24 +48,27 @@ class Client:
                 return
 
     async def consumer_handler(self):
-        ping_handler = asyncio.ensure_future(self.ping_handler())
         try:
-            while True:
-                event = await self.websocket.recv()
-                try:
-                    data = json.loads(event)
-                except json.decoder.JSONDecodeError:
-                    self.session.log.warn('received invalid json')
-                    await self.send({
-                        "status": "error",
-                        "error": c.ERR_INVALID_EVENT,
-                    })
-                else:
-                    await self.session.on_client_event(data)
-        except websockets.ConnectionClosed:
-            await self.session.on_close()
+            ping_handler = asyncio.ensure_future(self.ping_handler())
+            try:
+                while True:
+                    event = await self.websocket.recv()
+                    try:
+                        data = json.loads(event)
+                    except json.decoder.JSONDecodeError:
+                        self.session.log.warn('received invalid json')
+                        await self.send({
+                            "status": "error",
+                            "error": c.ERR_INVALID_EVENT,
+                        })
+                    else:
+                        await self.session.on_client_event(data)
+            except websockets.ConnectionClosed:
+                await self.session.on_close()
 
-        ping_handler.cancel()
+            ping_handler.cancel()
+        except Exception:
+            self.session.log.exception('unhandled error in consumer handler')
 
     async def send(self, event):
         try:
