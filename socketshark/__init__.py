@@ -81,7 +81,7 @@ class SocketShark:
             self.redis = await aioredis.create_redis((
                 redis_settings['host'], redis_settings['port']))
         except (OSError, aioredis.RedisError):
-            self.log.exception('could not connect to redis', exc_info=True)
+            self.log.exception('could not connect to redis')
             raise
 
         self._redis_connection_handler_task = asyncio.ensure_future(
@@ -227,5 +227,5 @@ def run(context, config):
     try:
         backend.run(shark)
     except Exception:
-        shark.log.exception('unhandled exception', exc_info=True)
+        shark.log.exception('unhandled exception')
         raise

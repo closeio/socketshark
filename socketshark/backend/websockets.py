@@ -68,8 +68,7 @@ class Client:
 
             ping_handler.cancel()
         except Exception:
-            self.session.log.exception('unhandled error in consumer handler',
-                                       exc_info=True)
+            self.session.log.exception('unhandled error in consumer handler')
 
     async def send(self, event):
         try:
