@@ -16,7 +16,7 @@ tests_require = install_requires + [
 
 setup(
     name='socketshark',
-    version='0.0',
+    version='0.1',
     url='http://github.com/closeio/socketshark',
     license='MIT',
     description='WebSocket message router',
@@ -36,6 +36,8 @@ setup(
     ],
     packages=[
         'socketshark',
+        'socketshark.backend',
+        'socketshark.metrics',
     ],
     entry_points={
         'console_scripts': [
