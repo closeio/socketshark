@@ -53,6 +53,12 @@ Features
   SocketShark supports custom application-specific fields for authentication
   and authorization purposes.
 
+- Metrics
+
+  SocketShark keeps track and reports metrics such as connection counts and
+  successfully or unsuccessfully executed commands, with built-in Prometheus
+  and logging backends.
+
 .. _websockets: https://websockets.readthedocs.io/
 
 Quick start

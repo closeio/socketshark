@@ -5,8 +5,20 @@ BACKEND = 'websockets'
 
 # Logging config
 LOG = {
-    'level': 'INFO',
+    'setup_structlog': True,
+    'level': 'INFO',  # Set to None to disable logging setup
     'format': '%(message)s'
+}
+
+METRICS = {
+    # Set a port to enable Prometheus integration
+    # 'prometheus': {
+    #     'host': '',
+    #     'port': None,
+    # },
+
+    # Log all metrics
+    # 'log': {},
 }
 
 # Host and port to bind WebSockets.

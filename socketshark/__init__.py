@@ -11,6 +11,7 @@ import click
 import structlog
 
 from . import config_defaults
+from .metrics import Metrics
 from .receiver import ServiceReceiver
 
 
@@ -42,6 +43,9 @@ class SocketShark:
         self._task = None
         self._shutdown = False
         self.sessions = set()
+        self.metrics = Metrics(self)
+        self.metrics.initialize()
+        self.metrics.set_ready(False)
 
     def signal_ready(self):
         """
@@ -51,17 +55,20 @@ class SocketShark:
                       host=self.config['WS_HOST'],
                       port=self.config['WS_PORT'],
                       secure=bool(self.config.get('WS_SSL')))
+        self.metrics.set_ready(True)
 
     def signal_shutdown(self):
         """
         Called by the backend to notify that the backend shut down.
         """
         self.log.info('done')
+        self.metrics.set_ready(False)
 
     async def _redis_connection_handler(self):
         await self.redis.wait_closed()
 
         self.log.error('redis unexpectedly closed')
+        self.metrics.set_ready(False)
 
         # Since we rely on PUBSUB channels, we disconnect all clients when
         # Redis goes down so they can reconnect and restore subscriptions.
@@ -200,10 +207,22 @@ def load_backend(config):
 def run(context, config):
     config_obj = load_config(config)
     backend = load_backend(config_obj)
+
     log_config = config_obj['LOG']
-    level = getattr(logging, log_config['level'])
-    logging.basicConfig(format=log_config['format'], level=level)
-    setup_structlog(sys.stdout.isatty())
+
+    # Configure root logger if logging level is specified in config
+    if log_config['level']:
+        level = getattr(logging, log_config['level'])
+        logger = logging.getLogger()
+        logger.setLevel(level)
+        formatter = logging.Formatter(log_config['format'])
+        sh = logging.StreamHandler()
+        sh.setFormatter(formatter)
+        logger.addHandler(sh)
+
+    if log_config['setup_structlog']:
+        setup_structlog(sys.stdout.isatty())
+
     shark = SocketShark(config_obj)
     try:
         backend.run(shark)
