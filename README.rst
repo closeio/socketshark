@@ -1,8 +1,15 @@
 ===========
 SocketShark
 ===========
+.. image:: https://circleci.com/gh/closeio/socketshark/tree/master.svg?style=svg
+    :target: https://circleci.com/gh/closeio/socketshark/tree/master
 
 *SocketShark* is a WebSocket message router based on Python/Redis/asyncio.
+
+(Interested in working on projects like this? `Close.io`_ is looking for `great engineers`_ to join our team)
+
+.. _Close.io: http://close.io
+.. _great engineers: http://jobs.close.io
 
 .. contents::
 
