@@ -32,6 +32,14 @@ class ServiceReceiver:
         return self.redis_channel_prefix + name
 
     async def reader(self, once=False):
+        try:
+            return await self._reader(once=once)
+        except Exception:
+            self.shark.log.exception('unhandled exception in receiver')
+        else:
+            self.redis_receiver.stop()
+
+    async def _reader(self, once=False):
         prefix_length = len(self.redis_channel_prefix)
         if once and not self.redis_receiver._queue.qsize():
             return False
@@ -52,8 +60,6 @@ class ServiceReceiver:
                 self.shark.log.exception('JSONDecodeError')
             if once and not self.redis_receiver._queue.qsize():
                 return True
-
-        self.redis_receiver.stop()
 
     async def add_provisional_subscription(self, session, subscription):
         if subscription not in self.subscriptions:

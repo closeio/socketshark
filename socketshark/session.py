@@ -59,6 +59,10 @@ class Session:
         if not self.active:
             return
 
+        if not 'subscription' in data or not 'data' in data:
+            self.log.warn('invalid service event', data=data)
+            return
+
         self.log.debug('service event', data=data)
 
         # Filter by comparing filter_fields to auth_info
