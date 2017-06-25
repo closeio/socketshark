@@ -59,7 +59,7 @@ class Session:
         if not self.active:
             return
 
-        if not 'subscription' in data or not 'data' in data:
+        if 'subscription' not in data or 'data' not in data:
             self.log.warn('invalid service event', data=data)
             return
 
