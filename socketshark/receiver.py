@@ -42,8 +42,8 @@ class ServiceReceiver:
             while True:
                 self.shark.log.debug('redis ping')
                 start_time = time.time()
-                # Until https://github.com/aio-libs/aioredis/issues/249 is fixed,
-                # we simply post a message on the ping channel.
+                # Until https://github.com/aio-libs/aioredis/issues/249 is
+                # fixed, we simply post a message on the ping channel.
                 ping_channel = self.redis_channel_prefix + '_socketshark_ping'
                 ping = self.redis.publish(ping_channel, '')
                 timeout_handler = asyncio.ensure_future(
