@@ -118,14 +118,12 @@ class SocketShark:
 
         await self.service_receiver.stop()
 
-        # If we're running the run loop, stopping the service receiver will
-        # trigger a shutdown. Otherwise we need clean up explicitly.
         if self._task:
             await asyncio.wait([self._task])
             self._task = None
             asyncio.get_event_loop().stop()
-        else:
-            self._cleanup()
+
+        self._cleanup()
 
         self._uninstall_signal_handlers()
         self._shutdown = False
@@ -135,7 +133,7 @@ class SocketShark:
 
     async def _run(self, once=False):
         await self.run_service_receiver()
-        self._cleanup()
+        asyncio.ensure_future(self.shutdown())
 
     async def run(self, once=False):
         """
