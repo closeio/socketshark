@@ -58,6 +58,8 @@ class ServiceReceiver:
                     self.provisional_events[session].append(data)
             except json.decoder.JSONDecodeError:
                 self.shark.log.exception('JSONDecodeError')
+            except Exception:
+                self.shark.log.exception('unhandled exception in receiver')
             if once and not self.redis_receiver._queue.qsize():
                 return True
 
