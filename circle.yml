@@ -1,10 +1,12 @@
 machine:
+  pre:
+    - curl -sSL https://s3.amazonaws.com/circle-downloads/install-circleci-docker.sh | bash -s -- 1.10.0
   environment:
     PYTHONPATH: .
   python:
     version: 3.5.2
   services:
-    - redis
+    - docker
 
 dependencies:
   override:
@@ -12,6 +14,7 @@ dependencies:
 
 test:
   pre:
+    - docker run -d redis:3.2.4-alpine
     - pip install -r requirements_tests.txt
     - flake8
   override:
