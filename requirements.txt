@@ -1,5 +1,5 @@
 aiohttp==2.1.0
-aioredis==0.3.0
+-e git+ssh://git@github.com/closeio/aioredis.git@pubsub-ping#egg=aioredis
 appdirs==1.4.3
 async-timeout==1.2.1
 chardet==3.0.3
