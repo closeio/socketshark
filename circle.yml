@@ -3,7 +3,7 @@ machine:
     - curl -sSL https://s3.amazonaws.com/circle-downloads/install-circleci-docker.sh | bash -s -- 1.10.0
   environment:
     PYTHONPATH: .
-    LOCAL_REDIS_HOST: $(ip addr show docker0 | grep \"inet\\b\" | awk '{print $2}' | cut -d/ -f1)
+    LOCAL_REDIS_HOST: $(ip addr show docker0 | grep "inet\\b" | awk '{print $2}' | cut -d/ -f1)
   python:
     version: 3.5.2
   services:
@@ -15,7 +15,7 @@ dependencies:
 
 test:
   pre:
-    - docker run -d redis:3.2.4-alpine
+    - docker run -p 6379:6379 -d redis:3.2.4-alpine
     - pip install -r requirements_tests.txt
     - flake8
   override:
