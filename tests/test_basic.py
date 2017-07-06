@@ -1053,7 +1053,7 @@ class TestSession:
             'status': 'ok',
         }
 
-        with patch('aioredis.Redis.ping', dummy_ping) as MockClass:
+        with patch('aioredis.Redis.ping', dummy_ping):
             task = asyncio.ensure_future(shark.run_service_receiver())
             await task  # Exits due to the timeout
 
