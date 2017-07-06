@@ -1042,6 +1042,7 @@ class TestSession:
         client = MockClient(shark)
         session = client.session
 
+        # Have at least one subscription so we-re in pubsub mode.
         await session.on_client_event({
             'event': 'subscribe',
             'subscription': 'simple.topic',
