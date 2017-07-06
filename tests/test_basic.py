@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 
 import aiohttp
 import aioredis
@@ -9,6 +10,9 @@ import pytest
 from socketshark import constants as c, load_backend, SocketShark
 from socketshark.session import Session
 
+LOCAL_REDIS_HOST = os.environ.get('LOCAL_REDIS_HOST')
+if not LOCAL_REDIS_HOST:
+    LOCAL_REDIS_HOST = '127.0.0.1'
 
 TEST_CONFIG = {
     'BACKEND': 'websockets',
@@ -17,7 +21,7 @@ TEST_CONFIG = {
     'WS_PING': {'interval': 0.1, 'timeout': 0.1},
     'METRICS': {},
     'REDIS': {
-        'host': 'localhost',
+        'host': LOCAL_REDIS_HOST,
         'port': 6379,
         'channel_prefix': '',
     },
