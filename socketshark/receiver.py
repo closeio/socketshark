@@ -45,6 +45,9 @@ class ServiceReceiver:
 
         try:
             while True:
+                # Sleep before pings
+                await asyncio.sleep(ping_interval - latency)
+
                 self.shark.log.debug('redis ping')
 
                 start_time = time.time()
@@ -63,9 +66,6 @@ class ServiceReceiver:
 
                 latency = time.time() - start_time
                 self.shark.log.debug('redis pong', latency=round(latency, 3))
-
-                # Sleep in between pings
-                await asyncio.sleep(ping_interval - latency)
 
         except asyncio.CancelledError:  # Cancelled by stop()
             if ping:
