@@ -3,6 +3,7 @@ machine:
     - curl -sSL https://s3.amazonaws.com/circle-downloads/install-circleci-docker.sh | bash -s -- 1.10.0
   environment:
     PYTHONPATH: .
+    LOCAL_REDIS_HOST: $(ip addr show docker0 | grep \"inet\\b\" | awk '{print $2}' | cut -d/ -f1)
   python:
     version: 3.5.2
   services:
