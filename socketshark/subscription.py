@@ -25,6 +25,9 @@ class Subscription:
             self.service_config = None
             self.extra_data = {}
 
+        # order key -> numeric order (the default order key is None)
+        self.order_state = {}
+
     def validate(self):
         if not self.service or not self.topic:
             raise EventError(c.ERR_INVALID_SUBSCRIPTION_FORMAT)
@@ -78,6 +81,38 @@ class Subscription:
         return await self.perform_service_request('on_unsubscribe',
                                                   raise_error=False)
 
+    def filter_message(self, data):
+        """
+        Returns whether to filter the given message.
+        """
+        # Check whether the message is filtered by comparing any defined
+        # filter_fields to auth_info.
+        filter_fields = self.service_config.get('filter_fields', [])
+        for field in filter_fields:
+            if field in data:
+                if self.session.auth_info.get(field) != data[field]:
+                    # Message filtered.
+                    print('filtered based on', field)
+                    return True
+
+        # Check whether the message is out-of-order.
+        if '_order' in data:
+            key = data.get('_order_key')
+            last_order = self.order_state.get(key)
+
+            try:
+                order = int(data['_order'])
+            except (TypeError, ValueError):
+                return True  # Filter invalid orders.
+
+            if last_order is not None and order <= last_order:
+                # Message filtered.
+                return True
+
+            self.order_state[key] = order
+
+        return False
+
     async def subscribe(self, event):
         """
         Subscribes to the subscription.
@@ -100,7 +135,8 @@ class Subscription:
 
         self.session.subscriptions[self.name] = self
 
-        await event.send_ok(result.get('data'))
+        if not self.filter_message(result):
+            await event.send_ok(result.get('data'))
 
         await self.shark.service_receiver.confirm_subscription(
             self.session, self.name)

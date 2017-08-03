@@ -65,18 +65,12 @@ class Session:
 
         self.log.debug('service event', data=data)
 
-        # Filter by comparing filter_fields to auth_info
         subscription_name = data['subscription']
         subscription = self.subscriptions.get(subscription_name)
         if not subscription:
             return
-
-        filter_fields = subscription.service_config.get('filter_fields', [])
-        for field in filter_fields:
-            if field in data:
-                if self.auth_info.get(field) != data[field]:
-                    # Message filtered.
-                    return
+        if subscription.filter_message(data):
+            return
 
         msg = {
             'event': 'message',
