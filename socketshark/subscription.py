@@ -81,9 +81,9 @@ class Subscription:
         return await self.perform_service_request('on_unsubscribe',
                                                   raise_error=False)
 
-    def filter_message(self, data):
+    def _should_deliver_message_filter_fields(self, data):
         """
-        Returns whether to filter the given message.
+        Returns whether to deliver the given message based on filter feilds.
         """
         # Check whether the message is filtered by comparing any defined
         # filter_fields to auth_info.
@@ -91,10 +91,14 @@ class Subscription:
         for field in filter_fields:
             if field in data:
                 if self.session.auth_info.get(field) != data[field]:
-                    # Message filtered.
-                    print('filtered based on', field)
-                    return True
+                    # Message doesn't match auth fields.
+                    return False
+        return True
 
+    def _should_deliver_message_order(self, data):
+        """
+        Returns whether to deliver the given message based on order.
+        """
         # Check whether the message is out-of-order.
         if '_order' in data:
             key = data.get('_order_key')
@@ -103,15 +107,25 @@ class Subscription:
             try:
                 order = int(data['_order'])
             except (TypeError, ValueError):
-                return True  # Filter invalid orders.
+                return False  # Don't deliver messages with invalid orders.
 
             if last_order is not None and order <= last_order:
-                # Message filtered.
-                return True
+                return False  # Message out-of-order.
 
             self.order_state[key] = order
+        return True
 
-        return False
+    def should_deliver_message(self, data):
+        """
+        Returns whether to deliver the given message.
+        """
+        if not self._should_deliver_message_filter_fields(data):
+            return False
+
+        if not self._should_deliver_message_order(data):
+            return False
+
+        return True
 
     async def subscribe(self, event):
         """
@@ -135,7 +149,7 @@ class Subscription:
 
         self.session.subscriptions[self.name] = self
 
-        if not self.filter_message(result):
+        if self.should_deliver_message(result):
             await event.send_ok(result.get('data'))
 
         await self.shark.service_receiver.confirm_subscription(

@@ -69,7 +69,7 @@ class Session:
         subscription = self.subscriptions.get(subscription_name)
         if not subscription:
             return
-        if subscription.filter_message(data):
+        if not subscription.should_deliver_message(data):
             return
 
         msg = {
