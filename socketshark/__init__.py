@@ -18,6 +18,8 @@ from .receiver import ServiceReceiver
 def setup_structlog(tty=False):
     processors = [
         structlog.stdlib.filter_by_level,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
         structlog.processors.TimeStamper(fmt='iso', utc=True),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
