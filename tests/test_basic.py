@@ -46,6 +46,10 @@ TEST_CONFIG = {
             'require_authentication': True,
             'filter_fields': ['session_id'],
         },
+        'simple_before_subscribe': {
+            'require_authentication': False,
+            'before_subscribe': 'http://my-service/subscribe/',
+        },
         'authorizer': {
             'require_authentication': True,
             'authorizer': 'http://auth-service/auth/authorizer/',
@@ -1016,6 +1020,189 @@ class TestSession:
         await session.on_close()
 
         assert session.subscriptions == {}
+
+        await shark.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_order_filter(self):
+        """
+        Test message order filter.
+        """
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+
+        subscription = 'simple_before_subscribe.topic'
+
+        conf = TEST_CONFIG['SERVICES']['simple_before_subscribe']
+
+        with aioresponses() as mock:
+            mock.post(conf['before_subscribe'], payload={
+                'status': 'ok',
+                '_order': 2,
+                'data': {
+                    'msg': 1,
+                }
+            })
+
+            await session.on_client_event({
+                'event': 'subscribe',
+                'subscription': subscription,
+            })
+            assert client.log.pop() == {
+                'event': 'subscribe',
+                'subscription': subscription,
+                'status': 'ok',
+                'data': {'msg': 1},  # order 2
+            }
+
+        # Test message from server to client
+        redis_settings = TEST_CONFIG['REDIS']
+        redis = await aioredis.create_redis((
+            redis_settings['host'], redis_settings['port']))
+        redis_topic = redis_settings['channel_prefix'] + subscription
+
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_order': 1,
+            'data': {'msg': 2},
+        })
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_order': 2,
+            'data': {'msg': 3},
+        })
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_order': 3,
+            'data': {'msg': 4},
+        })
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_order': 5,
+            'data': {'msg': 5},
+        })
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_order': 4,
+            'data': {'msg': 6},
+        })
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_order': 5,
+            'data': {'msg': 7},
+        })
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_order': 6,
+            'data': {'msg': 8},
+        })
+
+        # Test a different order key
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_order': 1,
+            '_order_key': 'other',
+            'data': {'other': 1},
+        })
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_order': 3,
+            '_order_key': 'other',
+            'data': {'other': 2},
+        })
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_order': 2,
+            '_order_key': 'other',
+            'data': {'other': 3},
+        })
+
+        redis.close()
+
+        # Wait for Redis to propagate the messages
+        await asyncio.sleep(0.1)
+
+        has_messages = await shark.run_service_receiver(once=True)
+        assert has_messages
+
+        assert client.log == [{
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'msg': 4},  # order 3
+        }, {
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'msg': 5},  # order 5
+        }, {
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'msg': 8},  # order 6
+        }, {
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'other': 1},  # other order 1
+        }, {
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'other': 2},  # other order 3
+        }]
+
+        await shark.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_order_filter_invalid(self):
+        """
+        Test invalid message order.
+        """
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+
+        subscription = 'simple.topic'
+
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': subscription,
+        })
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'subscription': subscription,
+            'status': 'ok',
+        }
+
+        # Test message from server to client
+        redis_settings = TEST_CONFIG['REDIS']
+        redis = await aioredis.create_redis((
+            redis_settings['host'], redis_settings['port']))
+        redis_topic = redis_settings['channel_prefix'] + subscription
+
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_order': 'invalid',
+            'data': {'foo': 'invalid'},
+        })
+
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            'data': {'foo': 'bar'},
+        })
+
+        redis.close()
+
+        # Wait for Redis to propagate the messages
+        await asyncio.sleep(0.1)
+
+        has_messages = await shark.run_service_receiver(once=True)
+        assert has_messages
+
+        assert client.log == [{
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'foo': 'bar'},
+        }]
 
         await shark.shutdown()
 

@@ -43,6 +43,11 @@ Features
   Through its configuration file, SocketShark can work with any number of
   services.
 
+- Out-of-order message filtering
+
+  If needed, an internal order can be supplied with messages from services, and
+  SocketShark will automatically filter out out-of-order messages.
+
 - Authentication
 
   SocketShark comes with ticket authentication built-in. To authenticate
@@ -470,6 +475,79 @@ Example Redis PUBLISH command:
     "data": {
       "action": "update",
       "title": "New title"
+    }
+  }
+
+Out-of-order message filtering
+------------------------------
+
+Since messages published by services may not necessarily arrive in the desired
+order, SocketShark supports message filtering. For example, you might be
+publishing updates for a versioned object to Redis but they may arrive
+out-of-order due to network latency. Messages can be tagged with an order, and
+SocketShark will filter out older messages if a newer message arrives first. An
+integer order can be supplied both in the `before_subscribe` callback's return
+value and in any published message using the `_order` key. Incoming messages
+with an order that is lower or equal to the last received highest order will
+be filtered out. Multiple independent orders can be specified using the
+optional `_order_key` key.
+
+In the following example, the "initiating" and "completed" messages, as well as
+the "h" and "hello" messages will be delivered to subscribers:
+
+.. code:: json
+
+  PUBLISH calls.call_1 {
+    "subscription": "calls.call_1",
+    "_order": 1,
+    "_order_key": "call_1.status",
+    "data": {
+      "status": "initiating",
+    }
+  }
+
+  PUBLISH calls.call_1 {
+    "subscription": "calls.call_1",
+    "_order": 3,
+    "_order_key": "call_1.status",
+    "data": {
+      "status": "completed",
+    }
+  }
+
+  PUBLISH calls.call_1 {
+    "subscription": "calls.call_1",
+    "_order": 2,
+    "_order_key": "call_1.status",
+    "data": {
+      "status": "ringing",
+    }
+  }
+
+  PUBLISH calls.call_1 {
+    "subscription": "calls.call_1",
+    "_order": 1,
+    "_order_key": "call_1.note",
+    "data": {
+      "note": "h",
+    }
+  }
+
+  PUBLISH calls.call_1 {
+    "subscription": "calls.call_1",
+    "_order": 3,
+    "_order_key": "call_1.note",
+    "data": {
+      "note": "hello",
+    }
+  }
+
+  PUBLISH calls.call_1 {
+    "subscription": "calls.call_1",
+    "_order": 2,
+    "_order_key": "call_1.note",
+    "data": {
+      "note": "hell",
     }
   }
 
