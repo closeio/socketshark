@@ -1030,46 +1030,6 @@ class TestSession:
         await shark.shutdown()
 
     @pytest.mark.asyncio
-    async def test_ping_redis(self):
-        """
-        Test periodical Redis ping.
-        """
-        original_ping = aioredis.Redis.ping
-
-        def dummy_ping(*args, **kwargs):
-            dummy_ping.n_pings += 1
-            if dummy_ping.n_pings < 2:
-                return original_ping(*args, **kwargs)
-            else:
-                loop = asyncio.get_event_loop()
-                return create_future(loop)
-        dummy_ping.n_pings = 0
-
-        shark = SocketShark(TEST_CONFIG)
-        await shark.prepare()
-        client = MockClient(shark)
-        session = client.session
-
-        # Have at least one subscription so we-re in pubsub mode.
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': 'simple.topic',
-        })
-        assert client.log.pop() == {
-            'event': 'subscribe',
-            'subscription': 'simple.topic',
-            'status': 'ok',
-        }
-
-        with patch('aioredis.Redis.ping', dummy_ping):
-            task = asyncio.ensure_future(shark.run_service_receiver())
-            await task  # Exits due to the timeout
-
-        assert dummy_ping.n_pings == 2
-
-        await shark.shutdown()
-
-    @pytest.mark.asyncio
     async def test_order_filter(self):
         """
         Test message order filter.
@@ -1249,6 +1209,46 @@ class TestSession:
             'subscription': subscription,
             'data': {'foo': 'bar'},
         }]
+
+        await shark.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_ping_redis(self):
+        """
+        Test periodical Redis ping.
+        """
+        original_ping = aioredis.Redis.ping
+
+        def dummy_ping(*args, **kwargs):
+            dummy_ping.n_pings += 1
+            if dummy_ping.n_pings < 2:
+                return original_ping(*args, **kwargs)
+            else:
+                loop = asyncio.get_event_loop()
+                return create_future(loop)
+        dummy_ping.n_pings = 0
+
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+
+        # Have at least one subscription so we-re in pubsub mode.
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': 'simple.topic',
+        })
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'subscription': 'simple.topic',
+            'status': 'ok',
+        }
+
+        with patch('aioredis.Redis.ping', dummy_ping):
+            task = asyncio.ensure_future(shark.run_service_receiver())
+            await task  # Exits due to the timeout
+
+        assert dummy_ping.n_pings == 2
 
         await shark.shutdown()
 
