@@ -86,6 +86,15 @@ class SocketShark:
             self.log.exception('could not connect to redis')
             raise
 
+        # Some features (e.g. pinging) don't work on old Redis versions.
+        info = await self.redis.info('server')
+        version_info = info['server']['redis_version'].split('.')
+        major, minor = int(version_info[0]), int(version_info[1])
+        if not (major > 3 or major == 3 and minor >= 2):
+            msg = 'Redis version must be at least 3.2'
+            self.log.exception(msg, version_info=version_info)
+            raise Exception(msg)
+
         self._redis_connection_handler_task = asyncio.ensure_future(
                 self._redis_connection_handler())
 

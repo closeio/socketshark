@@ -29,69 +29,70 @@ class ServiceReceiver:
 
         # We use a special channel to pass the stop message to the reader.
         self._stop_channel = self.redis_receiver.channel('_internal')
+        self._stop = False  # Stop flag
 
     def _channel(self, name):
         return self.redis_channel_prefix + name
 
     async def ping_handler(self):
         ping_interval = self.redis_settings['ping_interval']
-        if not ping_interval:
+        ping_timeout = self.redis_settings['ping_timeout']
+        if not ping_interval or not ping_timeout:
             return
+
         latency = 0
+        ping = wait = None
+
         try:
             while True:
+                # Sleep before pings
+                await asyncio.sleep(ping_interval - latency)
+
                 self.shark.log.debug('redis ping')
+
                 start_time = time.time()
-                # Until https://github.com/aio-libs/aioredis/issues/249 is
-                # fixed, we simply post a message on the ping channel.
-                ping_channel = self.redis_channel_prefix + '_socketshark_ping'
-                ping = self.redis.publish(ping_channel, '')
-                timeout_handler = asyncio.ensure_future(
-                        self.ping_timeout_handler(ping))
-                try:
-                    await ping
-                except asyncio.CancelledError:  # Cancelled by timeout handler
+
+                ping = self.redis.ping()
+                wait = asyncio.ensure_future(asyncio.sleep(ping_timeout))
+
+                done, pending = await asyncio.wait(
+                    [ping, wait], return_when=asyncio.FIRST_COMPLETED)
+
+                if ping in pending:
+                    # Ping timeout
+                    ping.cancel()
+                    self.shark.log.warn('redis ping timeout')
                     break
 
                 latency = time.time() - start_time
                 self.shark.log.debug('redis pong', latency=round(latency, 3))
 
-                # Return immediately if a ping timeout occurred.
-                if not timeout_handler.cancel() and timeout_handler.result():
-                    break
-
-                # Sleep in between pings
-                await asyncio.sleep(ping_interval - latency)
-
-            # Ping timeout
-            self.shark.log.warn('redis ping timeout')
+        except asyncio.CancelledError:  # Cancelled by stop()
+            if ping:
+                ping.cancel()
+            if wait:
+                wait.cancel()
+            if not self._stop:
+                self.shark.log.exception('unhandled exception in ping handler')
         except Exception:
             self.shark.log.exception('unhandled exception in ping handler')
-
-        await self.stop()
-
-    async def ping_timeout_handler(self, ping):
-        ping_timeout = self.redis_settings['ping_timeout']
-        await asyncio.sleep(ping_timeout)
-        if not ping.done():
-            ping.cancel()
-            return True
-        return False
+        finally:
+            await self.stop()
 
     async def reader(self, once=False):
+        self._stop = False
         try:
-            return await self._reader(once=once)
+            ping_handler = asyncio.ensure_future(self.ping_handler())
+            result = await self._reader(once=once)
+            ping_handler.cancel()
+            return result
         except Exception:
             self.shark.log.exception('unhandled exception in receiver')
-        else:
-            self.redis_receiver.stop()
 
     async def _reader(self, once=False):
         prefix_length = len(self.redis_channel_prefix)
         if once and not self.redis_receiver._queue.qsize():
             return False
-
-        ping_handler = asyncio.ensure_future(self.ping_handler())
 
         while True:
             data = await self.redis_receiver.get()
@@ -111,8 +112,6 @@ class ServiceReceiver:
                 self.shark.log.exception('unhandled exception in receiver')
             if once and not self.redis_receiver._queue.qsize():
                 return True
-
-        ping_handler.cancel()
 
     async def add_provisional_subscription(self, session, subscription):
         if subscription not in self.subscriptions:
@@ -152,4 +151,5 @@ class ServiceReceiver:
                 await self.redis.unsubscribe(self._channel(subscription))
 
     async def stop(self):
+        self._stop = True
         self._stop_channel.put_nowait(None)

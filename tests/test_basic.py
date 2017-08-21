@@ -1,9 +1,11 @@
 import asyncio
 import json
 import os
+from unittest.mock import patch
 
 import aiohttp
 import aioredis
+from aioredis.util import create_future
 from aioresponses import aioresponses
 import pytest
 
@@ -24,6 +26,8 @@ TEST_CONFIG = {
         'host': LOCAL_REDIS_HOST,
         'port': 6379,
         'channel_prefix': '',
+        'ping_interval': 0.1,
+        'ping_timeout': 0.1,
     },
     'HTTP': {
         'timeout': 1,
@@ -413,6 +417,8 @@ class TestSession:
             'status': 'error',
             'error': c.ERR_SUBSCRIPTION_NOT_FOUND,
         }
+
+        await shark.shutdown()
 
     @pytest.mark.asyncio
     async def test_subscription_simple(self):
@@ -1203,6 +1209,46 @@ class TestSession:
             'subscription': subscription,
             'data': {'foo': 'bar'},
         }]
+
+        await shark.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_ping_redis(self):
+        """
+        Test periodical Redis ping.
+        """
+        original_ping = aioredis.Redis.ping
+
+        def dummy_ping(*args, **kwargs):
+            dummy_ping.n_pings += 1
+            if dummy_ping.n_pings < 2:
+                return original_ping(*args, **kwargs)
+            else:
+                loop = asyncio.get_event_loop()
+                return create_future(loop)
+        dummy_ping.n_pings = 0
+
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+
+        # Have at least one subscription so we-re in pubsub mode.
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': 'simple.topic',
+        })
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'subscription': 'simple.topic',
+            'status': 'ok',
+        }
+
+        with patch('aioredis.Redis.ping', dummy_ping):
+            task = asyncio.ensure_future(shark.run_service_receiver())
+            await task  # Exits due to the timeout
+
+        assert dummy_ping.n_pings == 2
 
         await shark.shutdown()
 
