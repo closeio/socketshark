@@ -102,7 +102,10 @@ class ServiceReceiver:
             subscription = channel.name.decode()[prefix_length:]
             try:
                 data = json.loads(msg.decode())
-                for session in self.confirmed_subscriptions[subscription]:
+                # The confirmed_subscriptions array may change while looping,
+                # we therefore loop over a copy.
+                sessions = list(self.confirmed_subscriptions[subscription])
+                for session in sessions:
                     await session.on_service_event(data)
                 for session in self.provisional_subscriptions[subscription]:
                     self.provisional_events[session].append(data)
