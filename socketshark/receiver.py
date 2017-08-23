@@ -102,12 +102,16 @@ class ServiceReceiver:
             subscription = channel.name.decode()[prefix_length:]
             try:
                 data = json.loads(msg.decode())
-                # The confirmed_subscriptions array may change while looping,
-                # we therefore loop over a copy.
-                sessions = list(self.confirmed_subscriptions[subscription])
-                for session in sessions:
+                # The subscription arrays may change while executing
+                # on_service_event. We therefore create a snapshot before
+                # looping.
+                confirmed_sessions = list(
+                        self.confirmed_subscriptions[subscription])
+                provisional_sesssions = list(
+                        self.provisional_subscriptions[subscription])
+                for session in confirmed_sessions:
                     await session.on_service_event(data)
-                for session in self.provisional_subscriptions[subscription]:
+                for session in provisional_sesssions:
                     self.provisional_events[session].append(data)
             except json.decoder.JSONDecodeError:
                 self.shark.log.exception('JSONDecodeError')
