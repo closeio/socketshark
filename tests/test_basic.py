@@ -1378,6 +1378,7 @@ class TestWebsocket:
 
             aiosession = aiohttp.ClientSession()
 
+            # Set up client with autoping disabled.
             async with aiosession.ws_connect(self.ws_url,
                                              autoping=False) as ws:
 
@@ -1397,6 +1398,106 @@ class TestWebsocket:
                 assert msg.type == aiohttp.WSMsgType.CLOSE
 
                 await ws.close()
+
+            await aiosession.close()
+            asyncio.ensure_future(shark.shutdown())
+
+        shark = SocketShark(TEST_CONFIG)
+        backend = load_backend(TEST_CONFIG)
+        asyncio.ensure_future(task())
+        backend.run(shark)
+
+    def test_ping_2(self):
+        """
+        Ensure we can receive service messages when sending a message fails due
+        a timed out WebSocket.
+        """
+        async def task():
+            subscription = 'simple.topic'
+
+            # Set up Redis connection
+            redis_settings = TEST_CONFIG['REDIS']
+            redis = await aioredis.create_redis((
+                redis_settings['host'], redis_settings['port']))
+            redis_topic = redis_settings['channel_prefix'] + subscription
+
+            # Wait until backend is ready.
+            await asyncio.sleep(0.1)
+
+            aiosession = aiohttp.ClientSession()
+
+            # Set up client with autoping disabled.
+            async with aiosession.ws_connect(self.ws_url,
+                                             autoping=False) as ws1:
+
+                await ws1.send_str(json.dumps({
+                    'event': 'subscribe',
+                    'subscription': subscription,
+                }))
+                msg = await ws1.receive()
+                assert msg.type == aiohttp.WSMsgType.TEXT
+                data = json.loads(msg.data)
+                assert data == {
+                    'event': 'subscribe',
+                    'subscription': subscription,
+                    'status': 'ok',
+                }
+
+                # Don't respond to ping
+                msg = await ws1.receive()
+                assert msg.type == aiohttp.WSMsgType.PING
+                await asyncio.sleep(0.1)
+
+                # Publish a message that may hit a closed WebSocket
+                await redis.publish_json(redis_topic, {
+                    'subscription': subscription,
+                    'data': {'baz': 'old'}
+                })
+
+                # Ensure we get disconnected
+                msg = await ws1.receive()
+                assert msg.type == aiohttp.WSMsgType.CLOSE
+
+                # Eventually close the socket.
+                await ws1.close()
+
+            # Set up a new connection
+            ws2 = await aiosession.ws_connect(self.ws_url)
+            await ws2.send_str(json.dumps({
+                'event': 'subscribe',
+                'subscription': subscription,
+            }))
+
+            msg = await ws2.receive()
+            assert msg.type == aiohttp.WSMsgType.TEXT
+            data = json.loads(msg.data)
+            assert data == {
+                'event': 'subscribe',
+                'subscription': subscription,
+                'status': 'ok',
+            }
+
+            # Publish a new message
+            await redis.publish_json(redis_topic, {
+                'subscription': subscription,
+                'data': {'baz': 'new'}
+            })
+
+            # Wait until backend is ready.
+            await asyncio.sleep(0.1)
+
+            msg = await ws2.receive()
+            assert msg.type == aiohttp.WSMsgType.TEXT
+            data = json.loads(msg.data)
+            assert data == {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'baz': 'new'},
+            }
+
+            redis.close()
+
+            await ws2.close()
 
             await aiosession.close()
             asyncio.ensure_future(shark.shutdown())
