@@ -84,6 +84,7 @@ class Session:
         """
         Sends a JSON message to the client.
         """
+        self.log.debug('client send', data=data)
         await self.client.send(data)
 
     async def close(self):
