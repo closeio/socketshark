@@ -22,6 +22,7 @@ async def http_post(shark, url, data):
                 shark.log.debug('http request', url=url, data=data)
                 async with session.post(url, json=data,
                                         timeout=opts['timeout']) as resp:
+                    resp.raise_for_status()
                     data = await resp.json()
                     shark.log.debug('http response', data=data)
                     return data
