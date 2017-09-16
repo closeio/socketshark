@@ -28,7 +28,7 @@ class Session:
 
     async def on_client_event(self, data):
         """
-        Called by the WebSocket backend when a new client messages comes in.o
+        Called by the WebSocket backend when a new client messages comes in.
         Expects a JSON dict.
         """
         assert self.active
