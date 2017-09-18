@@ -28,4 +28,6 @@ async def http_post(shark, url, data):
                     return data
             except aiohttp.ClientError:
                 shark.log.exception('unhandled exception in http_post')
+            except asyncio.TimeoutError:
+                shark.log.exception('timeout in http_post')
         return {'status': 'error', 'error': c.ERR_SERVICE_UNAVAILABLE}
