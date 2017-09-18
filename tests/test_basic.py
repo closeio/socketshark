@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import time
 from unittest.mock import patch
 
 import aiohttp
@@ -33,6 +34,7 @@ TEST_CONFIG = {
         'timeout': 1,
         'tries': 1,
         'wait': 1,
+        'rate_limit_reset_header_name': 'X-Rate-Limit-Reset',
     },
     'AUTHENTICATION': {
         'ticket': {
@@ -1249,6 +1251,54 @@ class TestSession:
             await task  # Exits due to the timeout
 
         assert dummy_ping.n_pings == 2
+
+        await shark.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_rate_limit(self):
+        """
+        Make sure SocketShark retries 429 responses appropriately.
+        """
+        http_retry_config = TEST_CONFIG.copy()
+        http_retry_config['HTTP']['tries'] = 2
+        http_retry_config['HTTP']['wait'] = 3
+        shark = SocketShark(http_retry_config)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+
+        subscription = 'simple_before_subscribe.topic'
+
+        conf = TEST_CONFIG['SERVICES']['simple_before_subscribe']
+
+        with aioresponses() as mock:
+            mock.post(conf['before_subscribe'], status=429, headers={
+                'X-Rate-Limit-Reset': 1,
+            })
+            mock.post(conf['before_subscribe'], payload={
+                'status': 'ok',
+                'data': {},
+            })
+
+            start_time = time.time()
+
+            await session.on_client_event({
+                'event': 'subscribe',
+                'subscription': subscription,
+            })
+
+            assert client.log.pop() == {
+                'event': 'subscribe',
+                'subscription': subscription,
+                'status': 'ok',
+                'data': {},
+            }
+
+            end_time = time.time()
+
+            # Make sure we've waited for the amount of seconds specified in the
+            # header (not in the config)
+            assert 1 < end_time - start_time < 2
 
         await shark.shutdown()
 
