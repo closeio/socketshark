@@ -31,7 +31,11 @@ class Session:
         Called by the WebSocket backend when a new client messages comes in.
         Expects a JSON dict.
         """
-        assert self.active
+        if not self.active:
+            # Event was received while the WebSocket is about to close.
+            self.log.warn('inactive client event ignored', data=data)
+            return
+
         self.log.debug('client event', data=data)
         event = Event.from_data(self, data)
         try:
