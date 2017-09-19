@@ -12,7 +12,7 @@ def _get_rate_limit_wait(log, resp, opts):
     Returns the number of seconds we should wait given a 429 HTTP response and
     HTTP options.
     """
-    MAX_WAIT = 3600
+    max_wait = 3600
 
     wait = opts['wait']
 
@@ -22,18 +22,18 @@ def _get_rate_limit_wait(log, resp, opts):
         try:
             new_wait = float(header_value)
             # Make sure we have a valid value (not negative, NaN, or Inf)
-            if 0 <= new_wait <= MAX_WAIT:
+            if 0 <= new_wait <= max_wait:
                 wait = new_wait
-            elif new_wait > MAX_WAIT:
-                log.warn('rate reset value too high', name=header_name,
-                                                      value=header_value)
-                wait = MAX_WAIT
+            elif new_wait > max_wait:
+                log.warn('rate reset value too high',
+                         name=header_name, value=header_value)
+                wait = max_wait
             else:
-                log.warn('invalid rate reset value', name=header_name,
-                                                     value=header_value)
+                log.warn('invalid rate reset value',
+                         name=header_name, value=header_value)
         except ValueError:
-            log.warn('invalid rate reset value', name=header_name,
-                                                 value=header_value)
+            log.warn('invalid rate reset value',
+                     name=header_name, value=header_value)
     return wait
 
 
