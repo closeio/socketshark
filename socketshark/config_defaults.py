@@ -44,6 +44,9 @@ HTTP = {
     'timeout': 15,
     'tries': 3,
     'wait': 3,
+    # If we encounter HTTP 429, wait for the amount of seconds specified in
+    # the following header (fall back to the 'wait' value if it doesn't exist).
+    'rate_limit_reset_header_name': 'X-Rate-Limit-Reset',
 }
 
 # Redis options
