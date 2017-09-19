@@ -7,25 +7,34 @@ import aiohttp
 from . import constants as c
 
 
-def _get_rate_limit_wait(resp, opts):
+def _get_rate_limit_wait(log, resp, opts):
     """
     Returns the number of seconds we should wait given a 429 HTTP response and
     HTTP options.
     """
-    reset_header = opts['rate_limit_reset_header_name']
-    if reset_header and reset_header in resp.headers:
+    MAX_WAIT = 3600
+
+    wait = opts['wait']
+
+    header_name = opts['rate_limit_reset_header_name']
+    if header_name and header_name in resp.headers:
+        header_value = resp.headers[header_name]
         try:
-            wait = int(resp.headers[reset_header])
-            if wait < 0:
-                wait = opts['wait']
+            new_wait = float(header_value)
+            # Make sure we have a valid value (not negative, NaN, or Inf)
+            if 0 <= new_wait <= MAX_WAIT:
+                wait = new_wait
+            else:
+                log.warn('invalid rate limit value', name=header_name,
+                                                     value=header_value)
         except ValueError:
-            wait = opts['wait']
-    else:
-        wait = opts['wait']
+            log.warn('invalid rate limit value', name=header_name,
+                                                 value=header_value)
     return wait
 
 
 async def http_post(shark, url, data):
+    log = shark.log.bind(url=url)
     opts = shark.config['HTTP']
     if opts.get('ssl_cafile'):
         ssl_context = ssl.create_default_context(cafile=opts['ssl_cafile'])
@@ -38,18 +47,20 @@ async def http_post(shark, url, data):
             if n > 0:
                 await asyncio.sleep(wait)
             try:
-                shark.log.debug('http request', url=url, data=data)
+                log.debug('http request', data=data)
                 async with session.post(url, json=data,
                                         timeout=opts['timeout']) as resp:
                     if resp.status == 429:  # Too many requests.
-                        wait = _get_rate_limit_wait(resp, opts)
+                        wait = _get_rate_limit_wait(log, resp, opts)
                         continue
+                    else:
+                        wait = opts['wait']
                     resp.raise_for_status()
                     data = await resp.json()
-                    shark.log.debug('http response', data=data)
+                    log.debug('http response', data=data)
                     return data
             except aiohttp.ClientError:
-                shark.log.exception('unhandled exception in http_post')
+                log.exception('unhandled exception in http_post')
             except asyncio.TimeoutError:
-                shark.log.exception('timeout in http_post')
+                log.exception('timeout in http_post')
         return {'status': 'error', 'error': c.ERR_SERVICE_UNAVAILABLE}

@@ -1261,7 +1261,7 @@ class TestSession:
         """
         http_retry_config = TEST_CONFIG.copy()
         http_retry_config['HTTP']['tries'] = 2
-        http_retry_config['HTTP']['wait'] = 3
+        http_retry_config['HTTP']['wait'] = 1
         shark = SocketShark(http_retry_config)
         await shark.prepare()
         client = MockClient(shark)
@@ -1273,7 +1273,7 @@ class TestSession:
 
         with aioresponses() as mock:
             mock.post(conf['before_subscribe'], status=429, headers={
-                'X-Rate-Limit-Reset': 1,
+                'X-Rate-Limit-Reset': '0.2',
             })
             mock.post(conf['before_subscribe'], payload={
                 'status': 'ok',
@@ -1298,7 +1298,7 @@ class TestSession:
 
             # Make sure we've waited for the amount of seconds specified in the
             # header (not in the config)
-            assert 1 < end_time - start_time < 2
+            assert 0.1 < end_time - start_time < 0.3
 
         await shark.shutdown()
 
