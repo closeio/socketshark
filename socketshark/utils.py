@@ -24,11 +24,15 @@ def _get_rate_limit_wait(log, resp, opts):
             # Make sure we have a valid value (not negative, NaN, or Inf)
             if 0 <= new_wait <= MAX_WAIT:
                 wait = new_wait
+            elif new_wait > MAX_WAIT:
+                log.warn('rate reset value too high', name=header_name,
+                                                      value=header_value)
+                wait = MAX_WAIT
             else:
-                log.warn('invalid rate limit value', name=header_name,
+                log.warn('invalid rate reset value', name=header_name,
                                                      value=header_value)
         except ValueError:
-            log.warn('invalid rate limit value', name=header_name,
+            log.warn('invalid rate reset value', name=header_name,
                                                  value=header_value)
     return wait
 
