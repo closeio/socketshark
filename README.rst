@@ -485,8 +485,8 @@ Since messages published by services may not necessarily arrive in the desired
 order, SocketShark supports message filtering. For example, you might be
 publishing updates for a versioned object to Redis but they may arrive
 out-of-order due to network latency. Messages can be tagged with an order, and
-SocketShark will filter out older messages if a newer message arrives first. An
-integer order can be supplied both in the `before_subscribe` callback's return
+SocketShark will filter out older messages if a newer message arrives first. A
+float order can be supplied both in the `before_subscribe` callback's return
 value and in any published message using the `_order` key. Incoming messages
 with an order that is lower or equal to the last received highest order will
 be filtered out. Multiple independent orders can be specified using the

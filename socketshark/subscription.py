@@ -105,7 +105,7 @@ class Subscription:
             last_order = self.order_state.get(key)
 
             try:
-                order = int(data['_order'])
+                order = float(data['_order'])
             except (TypeError, ValueError):
                 return False  # Don't deliver messages with invalid orders.
 
