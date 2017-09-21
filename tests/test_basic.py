@@ -1107,22 +1107,22 @@ class TestSession:
             'data': {'msg': 8},
         })
 
-        # Test a different order key
+        # Test a different order key, and float order
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_order': 1,
+            '_order': 1.1,
             '_order_key': 'other',
             'data': {'other': 1},
         })
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_order': 3,
+            '_order': 1.3,
             '_order_key': 'other',
             'data': {'other': 2},
         })
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_order': 2,
+            '_order': 1.2,
             '_order_key': 'other',
             'data': {'other': 3},
         })
