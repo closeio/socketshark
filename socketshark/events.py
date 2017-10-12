@@ -36,13 +36,15 @@ class Event:
         self.session = session
         self.shark = session.shark
 
-    async def send_error(self, error, extra_data={}):
+    async def send_error(self, error, data=None, extra_data={}):
         msg = {
             'event': self.event,
             'status': 'error',
             'error': error
         }
         msg.update(self.extra_data)
+        if data is not None:
+            msg['data'] = data
         msg.update(extra_data)
         await self.session.send(msg)
 
@@ -64,7 +66,7 @@ class Event:
         try:
             return await self.process()
         except EventError as e:
-            await self.send_error(str(e))
+            await self.send_error(e.error, data=e.data)
             return False
 
 
@@ -129,8 +131,8 @@ class SubscriptionEvent(Event):
             self.subscription = Subscription(self.config, session, data)
         self.extra_data = self.subscription.extra_data
 
-    async def send_error(self, error):
-        await super().send_error(error, extra_data={
+    async def send_error(self, error, data=None):
+        await super().send_error(error, data=data, extra_data={
             'subscription': self.subscription_name,
         } if self.subscription_name else {})
 

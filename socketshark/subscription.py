@@ -53,7 +53,8 @@ class Subscription:
             result = await http_post(self.shark, url, data)
             if raise_error and result.get('status') != 'ok':
                 raise EventError(result.get('error', error_message or
-                                            c.ERR_UNHANDLED_EXCEPTION))
+                                            c.ERR_UNHANDLED_EXCEPTION),
+                                 data=result.get('data'))
             return result
         return {'status': 'ok'}
 

@@ -777,6 +777,11 @@ class TestSession:
                 'error': 'on message error',
             })
             mock.post(conf['on_message'], payload={
+                'status': 'error',
+                'error': 'on message error',
+                'data': {'extra': 'data'},
+            })
+            mock.post(conf['on_message'], payload={
                 'status': 'ok',
                 'data': None,
             })
@@ -816,6 +821,21 @@ class TestSession:
                 'status': 'error',
                 'extra': 'hello',
                 'error': 'on message error',
+            }
+
+            await session.on_client_event({
+                'event': 'message',
+                'subscription': 'complex.topic',
+                'extra': 'irrelevant',
+                'data': {'foo': 'bar', 'baz': 123},
+            })
+            assert client.log.pop() == {
+                'event': 'message',
+                'subscription': 'complex.topic',
+                'status': 'error',
+                'extra': 'hello',
+                'error': 'on message error',
+                'data': {'extra': 'data'},
             }
 
             await session.on_client_event({
