@@ -79,12 +79,13 @@ TEST_CONFIG = {
 }
 
 
-class aioresponses_delayed(aioresponses):
+class aioresponses_delayed(aioresponses):  # noqa
     """
     Just like aioresponses, but slightly delays POST requests.
     """
     async def _request_mock(self, orig_self, method, url, *args, **kwargs):
-        result = await super()._request_mock(orig_self, method, url, *args, **kwargs)
+        result = await super()._request_mock(orig_self, method, url, *args,
+                                             **kwargs)
         if method == 'POST':
             await asyncio.sleep(0.2)
         return result
