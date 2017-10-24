@@ -10,7 +10,7 @@ from aioredis.util import create_future
 from aioresponses import aioresponses
 import pytest
 
-from socketshark import constants as c, load_backend, SocketShark
+from socketshark import constants as c, SocketShark
 from socketshark.session import Session
 
 LOCAL_REDIS_HOST = os.environ.get('LOCAL_REDIS_HOST')
@@ -77,6 +77,18 @@ TEST_CONFIG = {
         },
     },
 }
+
+
+class aioresponses_delayed(aioresponses):  # noqa
+    """
+    Just like aioresponses, but slightly delays POST requests.
+    """
+    async def _request_mock(self, orig_self, method, url, *args, **kwargs):
+        result = await super()._request_mock(orig_self, method, url, *args,
+                                             **kwargs)
+        if method == 'POST':
+            await asyncio.sleep(0.2)
+        return result
 
 
 class MockClient:
@@ -1382,9 +1394,8 @@ class TestWebsocket:
             done = True
 
         shark = SocketShark(TEST_CONFIG)
-        backend = load_backend(TEST_CONFIG)
         asyncio.ensure_future(task())
-        backend.run(shark)
+        shark.start()
 
         assert done
 
@@ -1418,7 +1429,6 @@ class TestWebsocket:
                 mock.start()
                 mock.post(conf['on_unsubscribe'], payload={})
 
-                # Shutdown
                 asyncio.ensure_future(shark.shutdown())
 
                 msg = await ws.receive()
@@ -1428,10 +1438,70 @@ class TestWebsocket:
             await aiosession.close()
 
         shark = SocketShark(TEST_CONFIG)
-        backend = load_backend(TEST_CONFIG)
         asyncio.ensure_future(task())
-        backend.run(shark)
+        shark.start()
         mock.stop()
+
+        requests = mock.requests[('POST', conf['on_unsubscribe'])]
+        assert len(requests) == 1
+        assert requests[0].kwargs['json'] == {
+                'subscription': 'ws_test.hello'}
+
+    def test_shutdown_connections(self):
+        """
+        Make sure we don't allow new WebSocket connections when shutting down.
+        """
+        # Pretend we have a subscription that takes a long time to close (so
+        # we can sneak in a connection attempt).
+        mock = aioresponses_delayed()
+        conf = TEST_CONFIG['SERVICES']['ws_test']
+
+        async def task():
+            # Wait until backend is ready.
+            await asyncio.sleep(0.1)
+
+            aiosession = aiohttp.ClientSession()
+
+            async with aiosession.ws_connect(self.ws_url) as ws:
+                await ws.send_str(json.dumps({
+                    'event': 'subscribe',
+                    'subscription': 'ws_test.hello',
+                }))
+                msg = await ws.receive()
+                assert msg.type == aiohttp.WSMsgType.TEXT
+                data = json.loads(msg.data)
+                assert data == {
+                    'event': 'subscribe',
+                    'subscription': 'ws_test.hello',
+                    'status': 'ok',
+                }
+
+                mock.start()
+                mock.post(conf['on_unsubscribe'], payload={})
+
+                asyncio.ensure_future(shark.shutdown())
+
+                msg = await ws.receive()
+                assert msg.type == aiohttp.WSMsgType.CLOSE
+                await ws.close()
+
+                # Ensure we call the on_unsubscribe callback before the
+                # stopping the patcher.
+                await asyncio.sleep(0.1)
+
+                mock.stop()
+
+            # Attempt a new connection.
+            with pytest.raises(aiohttp.ClientConnectionError):
+                async with aiosession.ws_connect(self.ws_url) as ws:
+                    assert False  # Whoops!
+
+            await aiosession.close()
+
+        shark = SocketShark(TEST_CONFIG)
+        test_task = asyncio.ensure_future(task())
+        shark.start()
+        test_task.result()  # Raise any exceptions
 
         requests = mock.requests[('POST', conf['on_unsubscribe'])]
         assert len(requests) == 1
@@ -1473,9 +1543,8 @@ class TestWebsocket:
             asyncio.ensure_future(shark.shutdown())
 
         shark = SocketShark(TEST_CONFIG)
-        backend = load_backend(TEST_CONFIG)
         asyncio.ensure_future(task())
-        backend.run(shark)
+        shark.start()
 
     def test_ping_2(self):
         """
@@ -1573,9 +1642,8 @@ class TestWebsocket:
             asyncio.ensure_future(shark.shutdown())
 
         shark = SocketShark(TEST_CONFIG)
-        backend = load_backend(TEST_CONFIG)
         asyncio.ensure_future(task())
-        backend.run(shark)
+        shark.start()
 
     def test_redis_disconnect(self):
         """
@@ -1613,6 +1681,5 @@ class TestWebsocket:
             await aiosession.close()
 
         shark = SocketShark(TEST_CONFIG)
-        backend = load_backend(TEST_CONFIG)
         asyncio.ensure_future(task())
-        backend.run(shark)
+        shark.start()

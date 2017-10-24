@@ -80,26 +80,48 @@ class Client:
         await self.websocket.close()
 
 
-def run(shark):
-    async def serve(websocket, path):
-        client = Client(shark, websocket)
-        await client.consumer_handler()
+class Backend:
+    def __init__(self, shark):
+        self.shark = shark
+        self.server = None
 
-    async def shutdown_server():
-        server.close()
-        await server.wait_closed()
+    def close(self):
+        """
+        Called by SocketShark to indicate that the backend should stop
+        accepting connections.
+        """
+        # Stop the underlying asyncio.Server from accepting new connections.
+        if self.server:
+            self.server.server.close()
 
-    config = shark.config
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(shark.prepare())
-    ssl_context = shark.get_ssl_context()
-    start_server = websockets.serve(serve,
-                                    config['WS_HOST'],
-                                    config['WS_PORT'],
-                                    ssl=ssl_context)
-    server = loop.run_until_complete(start_server)
-    shark.signal_ready()
-    loop.run_until_complete(shark.run())
-    loop.run_forever()
-    loop.run_until_complete(shutdown_server())
-    shark.signal_shutdown()
+    async def shutdown(self):
+        """
+        Called by SocketShark to shutdown the backend (close any open
+        connections).
+        """
+        self.server.close()
+        await self.server.wait_closed()
+
+    def start(self):
+        """
+        Called by SocketShark to initialize the server and prepare & run
+        SocketShark.
+        """
+        async def serve(websocket, path):
+            client = Client(self.shark, websocket)
+            await client.consumer_handler()
+
+        config = self.shark.config
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.shark.prepare())
+        ssl_context = self.shark.get_ssl_context()
+        start_server = websockets.serve(serve,
+                                        config['WS_HOST'],
+                                        config['WS_PORT'],
+                                        ssl=ssl_context)
+        self.server = loop.run_until_complete(start_server)
+        self.shark.signal_ready()
+        loop.run_until_complete(self.shark.run())
+        loop.run_forever()
+        loop.run_until_complete(self.shutdown())
+        self.shark.signal_shutdown()

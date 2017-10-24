@@ -3,6 +3,7 @@ import importlib
 import logging
 import os
 import signal
+import ssl
 import sys
 
 import aioredis
@@ -38,9 +39,21 @@ def setup_structlog(tty=False):
     )
 
 
+def load_backend(config):
+    """
+    Returns the backend module from the given SocketShark configuration.
+    """
+    backend_name = config.get('BACKEND', 'websockets')
+    backend_module = 'socketshark.backend.{}'.format(backend_name)
+    return importlib.import_module(backend_module)
+
+
 class SocketShark:
     def __init__(self, config):
         self.config = config
+        backend_module = load_backend(config)
+        backend_cls = backend_module.Backend
+        self.backend = backend_cls(self)
         self.log = structlog.get_logger().bind(pid=os.getpid())
         self._task = None
         self._shutdown = False
@@ -77,6 +90,10 @@ class SocketShark:
         asyncio.ensure_future(self.shutdown())
 
     async def prepare(self):
+        """
+        Called by the backend to prepare SocketShark (i.e. initialize Redis
+        connection and the receiver class)
+        """
         redis_receiver = Receiver(loop=asyncio.get_event_loop())
         redis_settings = self.config['REDIS']
         try:
@@ -113,6 +130,9 @@ class SocketShark:
 
         self._shutdown = True
 
+        # Stop accepting new connections.
+        self.backend.close()
+
         for session in self.sessions:
             asyncio.ensure_future(session.close())
 
@@ -142,13 +162,19 @@ class SocketShark:
     async def run_service_receiver(self, once=False):
         return await self.service_receiver.reader(once=once)
 
+    def start(self):
+        """
+        Main entrypoint into SocketShark.
+        """
+        self.backend.start()
+
     async def _run(self, once=False):
         await self.run_service_receiver()
         asyncio.ensure_future(self.shutdown())
 
     async def run(self, once=False):
         """
-        SocketShark main coroutine.
+        SocketShark main coroutine, invoked by the backend.
         """
         self._install_signal_handlers()
         self._task = asyncio.ensure_future(self._run())
@@ -176,7 +202,6 @@ class SocketShark:
     def get_ssl_context(self):
         ssl_settings = self.config.get('WS_SSL')
         if ssl_settings:
-            import ssl
             ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
             ssl_context.load_cert_chain(certfile=ssl_settings['cert'],
                                         keyfile=ssl_settings['key'])
@@ -204,18 +229,11 @@ def load_config(config_name):
     return config
 
 
-def load_backend(config):
-    backend_name = config.get('BACKEND', 'websockets')
-    backend_module = 'socketshark.backend.{}'.format(backend_name)
-    return importlib.import_module(backend_module)
-
-
 @click.command()
 @click.option('-c', '--config', required=True, help='dotted path to config')
 @click.pass_context
 def run(context, config):
     config_obj = load_config(config)
-    backend = load_backend(config_obj)
 
     log_config = config_obj['LOG']
 
@@ -234,7 +252,7 @@ def run(context, config):
 
     shark = SocketShark(config_obj)
     try:
-        backend.run(shark)
+        shark.start()
     except Exception:
         shark.log.exception('unhandled exception')
         raise
