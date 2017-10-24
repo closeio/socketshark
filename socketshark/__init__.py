@@ -128,6 +128,8 @@ class SocketShark:
         if self._shutdown:
             return
 
+        self.log.info('shutting down')
+
         self._shutdown = True
 
         # Stop accepting new connections.
