@@ -84,6 +84,7 @@ class Backend:
     def __init__(self, shark):
         self.shark = shark
         self.server = None
+        self._closed = False
 
     def close(self):
         """
@@ -92,6 +93,7 @@ class Backend:
         """
         # Stop the underlying asyncio.Server from accepting new connections.
         if self.server:
+            self._closed = True
             self.server.server.close()
 
     async def shutdown(self):
@@ -108,6 +110,13 @@ class Backend:
         SocketShark.
         """
         async def serve(websocket, path):
+            # If there are any pending connections that were established after
+            # calling close() but before this callback was executed, close
+            # them immediately.
+            if self._closed:
+                self.shark.log.warn('dropped connection',
+                                     remote=websocket.remote_address)
+                return
             client = Client(self.shark, websocket)
             await client.consumer_handler()
 
