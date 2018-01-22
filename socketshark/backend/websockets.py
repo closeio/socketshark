@@ -115,7 +115,7 @@ class Backend:
             # them immediately.
             if self._closed:
                 self.shark.log.warn('dropped connection',
-                                     remote=websocket.remote_address)
+                                    remote=websocket.remote_address)
                 return
             client = Client(self.shark, websocket)
             await client.consumer_handler()
