@@ -97,8 +97,9 @@ class SocketShark:
         redis_receiver = Receiver(loop=asyncio.get_event_loop())
         redis_settings = self.config['REDIS']
         try:
-            self.redis = await aioredis.create_redis((
-                redis_settings['host'], redis_settings['port']))
+            self.redis = await aioredis.create_redis(
+                (redis_settings['host'], redis_settings['port']),
+                db=redis_settings.get('db', 0))
         except (OSError, aioredis.RedisError):
             self.log.exception('could not connect to redis')
             raise
