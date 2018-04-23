@@ -54,13 +54,21 @@ class SocketShark:
         backend_module = load_backend(config)
         backend_cls = backend_module.Backend
         self.backend = backend_cls(self)
-        self.log = structlog.get_logger().bind(pid=os.getpid())
+        self._init_logging()
         self._task = None
         self._shutdown = False
         self.sessions = set()
         self.metrics = Metrics(self)
         self.metrics.initialize()
         self.metrics.set_ready(False)
+
+    def _init_logging(self):
+        logger_name = self.config['LOG']['logger_name']
+        trace_logger_name = self.config['LOG']['trace_logger_name']
+        pid = os.getpid()
+        self.log = structlog.get_logger(logger_name).bind(pid=pid)
+        self.trace_log = structlog.get_logger(trace_logger_name).bind(pid=pid)
+        self.trace_log.debug('trace')
 
     def signal_ready(self):
         """
@@ -243,12 +251,19 @@ def run(context, config):
     # Configure root logger if logging level is specified in config
     if log_config['level']:
         level = getattr(logging, log_config['level'])
-        logger = logging.getLogger()
-        logger.setLevel(level)
         formatter = logging.Formatter(log_config['format'])
         sh = logging.StreamHandler()
         sh.setFormatter(formatter)
+
+        logger = logging.getLogger(log_config['logger_name'])
+        logger.setLevel(level)
         logger.addHandler(sh)
+
+        if log_config['trace_level']:
+            trace_level = getattr(logging, log_config['trace_level'])
+            trace_logger = logging.getLogger(log_config['trace_logger_name'])
+            trace_logger.setLevel(trace_level)
+            trace_logger.addHandler(sh)
 
     if log_config['setup_structlog']:
         setup_structlog(sys.stdout.isatty())
