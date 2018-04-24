@@ -7,7 +7,14 @@ BACKEND = 'websockets'
 LOG = {
     'setup_structlog': True,
     'level': 'INFO',  # Set to None to disable logging setup
-    'format': '%(message)s'
+    'format': '%(message)s',
+    'logger_name': 'socketshark',
+
+    # Trace loggers are prefixed with the value below (separated by dot).
+    'trace_logger_prefix': 'trace',
+
+    # Set to 'DEBUG' to enable trace logger, or 'INFO' or higher to disable.
+    'trace_level': 'INFO',
 }
 
 METRICS = {

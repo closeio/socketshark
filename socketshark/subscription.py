@@ -158,13 +158,13 @@ class Subscription:
         Returns whether to deliver the given message.
         """
         if not self._should_deliver_message_filter_fields(data):
-            self.session.log.debug('message filtered', data=data,
-                                   reason='fields')
+            self.session.trace_log.debug('message filtered', data=data,
+                                         reason='fields')
             return False
 
         if not self._should_deliver_message_order(data):
-            self.session.log.debug('message filtered', data=data,
-                                   reason='order')
+            self.session.trace_log.debug('message filtered', data=data,
+                                         reason='order')
             return False
 
         if not self._should_deliver_message_throttle(data):
