@@ -551,6 +551,46 @@ the "h" and "hello" messages will be delivered to subscribers:
     }
   }
 
+Message throttling
+------------------
+
+Messages published by services can be throttled by specifying the time in
+seconds using `_throttle` in the published message. Note that the first message
+will be sent immediately, and the last message will be sent eventually.
+Multiple independent throttles can be specified using the optional
+`_throttle_key` key.
+
+In the example below, if the three messages are published at the same time, the
+first one will be delivered to subscribers immediately, the second one will be
+ignored, and the third message will be delivered to subscribers after 100ms
+pass.
+
+.. code:: json
+
+  PUBLISH calls.stats {
+    "subscription": "calls.stats",
+    "_throttle": 0.1,
+    "data": {
+      "n_calls": 1,
+    }
+  }
+
+  PUBLISH calls.stats {
+    "subscription": "calls.stats",
+    "_throttle": 0.1,
+    "data": {
+      "n_calls": 2,
+    }
+  }
+
+  PUBLISH calls.stats {
+    "subscription": "calls.stats",
+    "_throttle": 0.1,
+    "data": {
+      "n_calls": 3,
+    }
+  }
+
 
 Use patterns
 ============

@@ -1021,6 +1021,10 @@ class TestSession:
 
     @pytest.mark.asyncio
     async def test_unsubscribe_on_close(self):
+        """
+        Ensure there are no issues after closing the connection when there are
+        scheduled throttled messages.
+        """
         shark = SocketShark(TEST_CONFIG)
         await shark.prepare()
         client = MockClient(shark)
@@ -1331,6 +1335,195 @@ class TestSession:
             # Make sure we've waited for the amount of seconds specified in the
             # header (not in the config)
             assert 0.1 < end_time - start_time < 0.3
+
+        await shark.shutdown()
+
+
+class TestThrottle:
+    """
+    Test throttling messages.
+    """
+
+    @pytest.mark.asyncio
+    async def test_throttle(self):
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+
+        subscription = 'simple.topic'
+
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': subscription,
+        })
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'subscription': subscription,
+            'status': 'ok',
+        }
+
+        redis_settings = TEST_CONFIG['REDIS']
+        redis = await aioredis.create_redis((
+            redis_settings['host'], redis_settings['port']))
+        redis_topic = redis_settings['channel_prefix'] + subscription
+
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_throttle': 0.2,
+            'data': {'foo': 'one'},
+        })
+
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_throttle': 1,
+            '_throttle_key': 'other',
+            'data': {'bar': 'one'},
+        })
+
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_throttle': 'invalid',
+            'data': {'invalid': 'one'},
+        })
+
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            'data': {'unthrottled': 'one'},
+        })
+
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_throttle': 0.2,
+            'data': {'foo': 'two'},
+        })
+
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_throttle': 0.2,
+            'data': {'foo': 'three'},
+        })
+
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            'data': {'unthrottled': 'two'},
+        })
+
+        # Wait for Redis to propagate the messages
+        await asyncio.sleep(0.1)
+
+        has_messages = await shark.run_service_receiver(once=True)
+        assert has_messages
+
+        # Ensure the first message (foo, bar) is immediately published, and
+        # that unthrottled messages are always published.
+        assert client.log == [{
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'foo': 'one'},
+        }, {
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'bar': 'one'},
+        }, {
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'unthrottled': 'one'},
+        }, {
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'unthrottled': 'two'},
+        }]
+        client.log = []
+
+        await asyncio.sleep(0.2)
+
+        # Ensure the last throttled message is eventually published.
+        assert client.log == [{
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'foo': 'three'},
+        }]
+        client.log = []
+
+        await asyncio.sleep(0.2)
+
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_throttle': 0.2,
+            'data': {'foo': 'four'},
+        })
+
+        # Wait for Redis to propagate the message
+        await asyncio.sleep(0.1)
+
+        has_messages = await shark.run_service_receiver(once=True)
+        assert has_messages
+
+        # Ensure we immediately publish after the throttle period is over.
+        assert client.log == [{
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'foo': 'four'},
+        }]
+
+        redis.close()
+
+        await shark.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_throttle_close(self):
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+
+        subscription = 'simple.topic'
+
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': subscription,
+        })
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'subscription': subscription,
+            'status': 'ok',
+        }
+
+        redis_settings = TEST_CONFIG['REDIS']
+        redis = await aioredis.create_redis((
+            redis_settings['host'], redis_settings['port']))
+        redis_topic = redis_settings['channel_prefix'] + subscription
+
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_throttle': 1,
+            'data': {'foo': 'one'},
+        })
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_throttle': 1,
+            'data': {'foo': 'two'},
+        })
+
+        # Wait for Redis to propagate the messages
+        await asyncio.sleep(0.1)
+
+        has_messages = await shark.run_service_receiver(once=True)
+        assert has_messages
+
+        assert client.log == [{
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'foo': 'one'},
+        }]
+
+        await session.on_client_event({
+            'event': 'unsubscribe',
+            'subscription': subscription,
+        })
+
+        redis.close()
 
         await shark.shutdown()
 
