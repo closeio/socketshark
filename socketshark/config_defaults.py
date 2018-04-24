@@ -9,8 +9,12 @@ LOG = {
     'level': 'INFO',  # Set to None to disable logging setup
     'format': '%(message)s',
     'logger_name': 'socketshark',
-    'trace_logger_name': 'socketshark_trace',
-    'trace_level': None,  # Set to 'DEBUG' to enable trace logger
+
+    # Trace loggers are prefixed with the value below (separated by dot).
+    'trace_logger_prefix': 'trace',
+
+    # Set to 'DEBUG' to enable trace logger, or 'INFO' or higher to disable.
+    'trace_level': 'INFO',
 }
 
 METRICS = {

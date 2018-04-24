@@ -64,7 +64,8 @@ class SocketShark:
 
     def _init_logging(self):
         logger_name = self.config['LOG']['logger_name']
-        trace_logger_name = self.config['LOG']['trace_logger_name']
+        trace_logger_prefix = self.config['LOG']['trace_logger_prefix']
+        trace_logger_name = '{}.{}'.format(trace_logger_prefix, logger_name)
         pid = os.getpid()
         self.log = structlog.get_logger(logger_name).bind(pid=pid)
         self.trace_log = structlog.get_logger(trace_logger_name).bind(pid=pid)
@@ -255,15 +256,13 @@ def run(context, config):
         sh = logging.StreamHandler()
         sh.setFormatter(formatter)
 
-        logger = logging.getLogger(log_config['logger_name'])
+        logger = logging.getLogger()
         logger.setLevel(level)
         logger.addHandler(sh)
 
-        if log_config['trace_level']:
-            trace_level = getattr(logging, log_config['trace_level'])
-            trace_logger = logging.getLogger(log_config['trace_logger_name'])
-            trace_logger.setLevel(trace_level)
-            trace_logger.addHandler(sh)
+        trace_level = getattr(logging, log_config['trace_level'])
+        trace_logger = logging.getLogger(log_config['trace_logger_prefix'])
+        trace_logger.setLevel(trace_level)
 
     if log_config['setup_structlog']:
         setup_structlog(sys.stdout.isatty())
