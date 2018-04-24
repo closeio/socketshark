@@ -116,6 +116,7 @@ class AuthEvent(Event):
             raise EventError(result.get('error', c.ERR_AUTH_FAILED))
         auth_info = {field: result[field] for field in auth_fields}
         self.session.auth_info = auth_info
+        self.session.log.debug('auth info', auth_info=auth_info)
         await self.send_ok()
         return True
 

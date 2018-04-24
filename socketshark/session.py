@@ -20,6 +20,7 @@ class Session:
         self.config = shark.config
         self.client = client
         self.log = self.shark.log.bind(session=id(self))
+        self.trace_log = self.shark.trace_log.bind(session=id(self))
         self.log.debug('new session', **info)
         self.subscriptions = {}  # dict of Subscription objects by name
         self.active = True
@@ -66,8 +67,6 @@ class Session:
         if 'subscription' not in data or 'data' not in data:
             self.log.warn('invalid service event', data=data)
             return
-
-        self.log.debug('service event', data=data)
 
         subscription_name = data['subscription']
         subscription = self.subscriptions.get(subscription_name)

@@ -32,7 +32,7 @@ class Client:
         latency = 0
         while True:
             await asyncio.sleep(ping_interval - latency)
-            self.session.log.debug('ping')
+            self.session.trace_log.debug('ping')
             start_time = time.time()
             try:
                 ping = await self.websocket.ping()
@@ -42,7 +42,7 @@ class Client:
                     self.ping_timeout_handler(ping))
             await ping
             latency = time.time() - start_time
-            self.session.log.debug('pong', latency=round(latency, 3))
+            self.session.trace_log.debug('pong', latency=round(latency, 3))
             # Return immediately if a ping timeout occurred.
             if not timeout_handler.cancel() and timeout_handler.result():
                 return

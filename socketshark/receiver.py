@@ -48,7 +48,7 @@ class ServiceReceiver:
                 # Sleep before pings
                 await asyncio.sleep(ping_interval - latency)
 
-                self.shark.log.debug('redis ping')
+                self.shark.trace_log.debug('redis ping')
 
                 start_time = time.time()
 
@@ -65,7 +65,8 @@ class ServiceReceiver:
                     break
 
                 latency = time.time() - start_time
-                self.shark.log.debug('redis pong', latency=round(latency, 3))
+                self.shark.trace_log.debug('redis pong',
+                                           latency=round(latency, 3))
 
         except asyncio.CancelledError:  # Cancelled by stop()
             if ping:
@@ -102,6 +103,7 @@ class ServiceReceiver:
             subscription = channel.name.decode()[prefix_length:]
             try:
                 data = json.loads(msg.decode())
+                self.shark.trace_log.debug('service event', data=data)
                 # The subscription arrays may change while executing
                 # on_service_event. We therefore create a snapshot before
                 # looping.
