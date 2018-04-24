@@ -16,6 +16,26 @@ from .metrics import Metrics
 from .receiver import ServiceReceiver
 
 
+def setup_logging(log_config):
+    # Configure root logger if logging level is specified in config
+    if log_config['level']:
+        level = getattr(logging, log_config['level'])
+        formatter = logging.Formatter(log_config['format'])
+        sh = logging.StreamHandler()
+        sh.setFormatter(formatter)
+
+        logger = logging.getLogger()
+        logger.setLevel(level)
+        logger.addHandler(sh)
+
+        trace_level = getattr(logging, log_config['trace_level'])
+        trace_logger = logging.getLogger(log_config['trace_logger_prefix'])
+        trace_logger.setLevel(trace_level)
+
+    if log_config['setup_structlog']:
+        setup_structlog(sys.stdout.isatty())
+
+
 def setup_structlog(tty=False):
     processors = [
         structlog.stdlib.filter_by_level,
@@ -247,25 +267,7 @@ def load_config(config_name):
 def run(context, config):
     config_obj = load_config(config)
 
-    log_config = config_obj['LOG']
-
-    # Configure root logger if logging level is specified in config
-    if log_config['level']:
-        level = getattr(logging, log_config['level'])
-        formatter = logging.Formatter(log_config['format'])
-        sh = logging.StreamHandler()
-        sh.setFormatter(formatter)
-
-        logger = logging.getLogger()
-        logger.setLevel(level)
-        logger.addHandler(sh)
-
-        trace_level = getattr(logging, log_config['trace_level'])
-        trace_logger = logging.getLogger(log_config['trace_logger_prefix'])
-        trace_logger.setLevel(trace_level)
-
-    if log_config['setup_structlog']:
-        setup_structlog(sys.stdout.isatty())
+    setup_logging(config_obj['LOG'])
 
     shark = SocketShark(config_obj)
     try:

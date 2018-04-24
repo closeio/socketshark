@@ -10,7 +10,8 @@ from aioredis.util import create_future
 from aioresponses import aioresponses
 import pytest
 
-from socketshark import config_defaults, constants as c, SocketShark
+from socketshark import (config_defaults, constants as c, setup_logging,
+                         SocketShark)
 from socketshark.session import Session
 
 LOCAL_REDIS_HOST = os.environ.get('LOCAL_REDIS_HOST')
@@ -78,6 +79,8 @@ TEST_CONFIG = {
         },
     },
 }
+
+setup_logging(TEST_CONFIG['LOG'])
 
 
 class aioresponses_delayed(aioresponses):  # noqa
