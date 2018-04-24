@@ -48,6 +48,10 @@ Features
   If needed, an internal order can be supplied with messages from services, and
   SocketShark will automatically filter out out-of-order messages.
 
+- Message throttling
+
+  If needed, service messages can be throttled by SocketShark.
+
 - Authentication
 
   SocketShark comes with ticket authentication built-in. To authenticate
@@ -558,7 +562,7 @@ Messages published by services can be throttled by specifying the time in
 seconds using `_throttle` in the published message. Note that the first message
 will be sent immediately, and the last message will be sent eventually.
 Multiple independent throttles can be specified using the optional
-`_throttle_key` key.
+`_throttle_key` key. Throttling is performed per subscription per session.
 
 In the example below, if the three messages are published at the same time, the
 first one will be delivered to subscribers immediately, the second one will be
