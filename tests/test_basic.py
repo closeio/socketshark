@@ -1531,6 +1531,122 @@ class TestThrottle:
 
         await shark.shutdown()
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('throttle,wait', [(0.8, 0.4), (0.4, 0.8)])
+    async def test_throttle_slow_send(self, throttle, wait):
+        """
+        Ensure throttling behaves properly when sending messages is delayed
+        (by the given wait).
+        """
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+
+        subscription = 'simple.topic'
+
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': subscription,
+        })
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'subscription': subscription,
+            'status': 'ok',
+        }
+
+        redis_settings = TEST_CONFIG['REDIS']
+        redis = await aioredis.create_redis((
+            redis_settings['host'], redis_settings['port']))
+        redis_topic = redis_settings['channel_prefix'] + subscription
+
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_throttle': throttle,
+            'data': {'foo': 'one'},
+        })
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_throttle': throttle,
+            'data': {'foo': 'two'},
+        })
+
+        # Wait for Redis to propagate the messages
+        await asyncio.sleep(0.1)
+
+        has_messages = await shark.run_service_receiver(once=True)
+        assert has_messages
+
+        # First message was delivered immediately.
+        assert client.log == [{
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'foo': 'one'},
+        }]
+        client.log = []
+
+        # Slow down sending of the second message.
+        original = Session.send_message
+
+        async def dummy_send(*args):
+            await asyncio.sleep(wait)
+            await original(*args)
+
+        Session.send_message = dummy_send
+
+        # Wait long enough that we're sending the second message, but aren't
+        # done sending yet.
+        await asyncio.sleep(throttle)
+
+        # No longer slow down sending subsequent messages.
+        Session.send_message = original
+
+        # Send a third message.
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            '_throttle': throttle,
+            'data': {'foo': 'three'},
+        })
+
+        # Wait for Redis to propagate the messages
+        await asyncio.sleep(0.1)
+
+        has_messages = await shark.run_service_receiver(once=True)
+        assert has_messages
+
+        # We're still sending the second message
+        assert client.log == []
+
+        await asyncio.sleep(wait)
+
+        # We're now done sending the second message
+        assert client.log.pop(0) == {
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'foo': 'two'},
+        }
+
+        if throttle - wait > 0:
+            # We only need to wait (throttle-wait) for the third message to go
+            # out (since sending the second message took wait and we're no
+            # longer slowing down sending)
+            await asyncio.sleep(throttle - wait)
+
+        assert client.log == [{
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'foo': 'three'},
+        }]
+
+        await session.on_client_event({
+            'event': 'unsubscribe',
+            'subscription': subscription,
+        })
+
+        redis.close()
+
+        await shark.shutdown()
+
 
 class TestWebsocket:
     """

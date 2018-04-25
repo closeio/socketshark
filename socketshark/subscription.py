@@ -32,6 +32,12 @@ class Subscription:
         self.order_state = {}
 
         # throttle key -> (last message sent timestamp, latest message, task)
+        # If this is set, the possible states are:
+        # (ts, None, None) -- No messages are pending.
+        # (ts, msg,  task) -- The given message is scheduled to be sent by the
+        #                     given asyncio task.
+        # (ts, None, task) -- A message is currently being sent by the given
+        #                     asyncio task.
         self.throttle_state = {}
 
     def validate(self):
@@ -144,14 +150,21 @@ class Subscription:
                 return False
             elif now - ts_last_msg_sent < throttle:
                 # Schedule a task to send the message.
-                task = asyncio.ensure_future(self._schedule_throttled_message(
-                    ts_last_msg_sent + throttle - now, key))
-                self.throttle_state[key] = (ts_last_msg_sent, data, task)
+                self._schedule_throttled_message_task(key, ts_last_msg_sent,
+                                                      data)
                 return False
 
         # Send current message and store time.
         self.throttle_state[key] = (now, None, None)
         return True
+
+    def _schedule_throttled_message_task(self, key, ts_last_msg_sent, data):
+        # This should succeed since we parsed it previously.
+        throttle = float(data['_throttle'])
+        when = ts_last_msg_sent + throttle
+        task = asyncio.ensure_future(self._schedule_throttled_message(when,
+                                                                      key))
+        self.throttle_state[key] = (ts_last_msg_sent, data, task)
 
     def should_deliver_message(self, data):
         """
@@ -174,7 +187,8 @@ class Subscription:
 
         return True
 
-    async def _schedule_throttled_message(self, delay, throttle_key):
+    async def _schedule_throttled_message(self, when, throttle_key):
+        delay = when - time.time()
         try:
             await asyncio.sleep(delay)
             await self._send_throttled_message(throttle_key)
@@ -192,11 +206,23 @@ class Subscription:
                                          'invalid', throttle_key=throttle_key)
             return
         last_throttle = self.throttle_state.get(throttle_key)
-        if last_throttle:
-            now = time.time()
-            ts_last_msg_sent, pending_msg, task = last_throttle
+        if not last_throttle:
+            return
+
+        now = time.time()
+        ts_last_msg_sent, pending_msg, task = last_throttle
+        self.throttle_state[throttle_key] = (now, None, task)
+        await self.session.send_message(self, pending_msg['data'])
+
+        ts_last_msg_sent, pending_msg, task = self.throttle_state[throttle_key]
+        # A throttled message was submitted while we were sending.
+        # Schedule another task.
+        if pending_msg:
+            self._schedule_throttled_message_task(throttle_key,
+                                                  ts_last_msg_sent,
+                                                  pending_msg)
+        else:
             self.throttle_state[throttle_key] = (now, None, None)
-            await self.session.send_message(self, pending_msg['data'])
 
     async def subscribe(self, event):
         """
