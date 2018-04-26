@@ -239,19 +239,21 @@ class Subscription:
             self.session.trace_log.debug('throttled message subscription '
                                          'invalid', throttle_key=throttle_key)
             return
-        last_throttle = self.throttle_state.get(throttle_key)
-        if not last_throttle:
-            return
 
-        now = time.time()
+        last_throttle = self.throttle_state[throttle_key]
         ts_last_msg_sent, pending_msg, task = last_throttle
+        now = time.time()
         self.throttle_state[throttle_key] = (now, None, task)
+        self.session.trace_log.debug('sending throttled message',
+                                     throttle_key=throttle_key)
         await self.session.send_message(self, pending_msg['data'])
 
         ts_last_msg_sent, pending_msg, task = self.throttle_state[throttle_key]
         # A throttled message was submitted while we were sending.
         # Schedule another task.
         if pending_msg:
+            self.session.trace_log.debug('throttled message submitted while '
+                                         'sending', throttle_key=throttle_key)
             self._schedule_throttled_message_task(throttle_key,
                                                   ts_last_msg_sent,
                                                   pending_msg)
