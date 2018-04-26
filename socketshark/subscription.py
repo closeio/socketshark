@@ -223,6 +223,8 @@ class Subscription:
 
     async def _schedule_throttled_message(self, when, throttle_key):
         delay = when - time.time()
+        self.session.trace_log.debug('throttled message scheduled',
+                                     throttle_key=throttle_key, delay=delay)
         try:
             await asyncio.sleep(delay)
             await self._send_throttled_message(throttle_key)
