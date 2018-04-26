@@ -1088,10 +1088,8 @@ class TestSession:
         with aioresponses() as mock:
             mock.post(conf['before_subscribe'], payload={
                 'status': 'ok',
-                '_order': 2,
-                'data': {
-                    'msg': 1,
-                }
+                'options': {'order': 2},
+                'data': {'msg': 1}
             })
 
             await session.on_client_event({
@@ -1113,57 +1111,54 @@ class TestSession:
 
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_order': 1,
+            'options': {'order': 1},
             'data': {'msg': 2},
         })
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_order': 2,
+            'options': {'order': 2},
             'data': {'msg': 3},
         })
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_order': 3,
+            'options': {'order': 3},
             'data': {'msg': 4},
         })
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_order': 5,
+            'options': {'order': 5},
             'data': {'msg': 5},
         })
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_order': 4,
+            'options': {'order': 4},
             'data': {'msg': 6},
         })
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_order': 5,
+            'options': {'order': 5},
             'data': {'msg': 7},
         })
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_order': 6,
+            'options': {'order': 6},
             'data': {'msg': 8},
         })
 
         # Test a different order key, and float order
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_order': 1.1,
-            '_order_key': 'other',
+            'options': {'order': 1.1, 'order_key': 'other'},
             'data': {'other': 1},
         })
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_order': 1.3,
-            '_order_key': 'other',
+            'options': {'order': 1.3, 'order_key': 'other'},
             'data': {'other': 2},
         })
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_order': 1.2,
-            '_order_key': 'other',
+            'options': {'order': 1.2, 'order_key': 'other'},
             'data': {'other': 3},
         })
 
@@ -1229,7 +1224,7 @@ class TestSession:
 
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_order': 'invalid',
+            'options': {'order': 'invalid'},
             'data': {'foo': 'invalid'},
         })
 
@@ -1247,6 +1242,10 @@ class TestSession:
         assert has_messages
 
         assert client.log == [{
+            'event': 'message',
+            'subscription': subscription,
+            'data': {'foo': 'invalid'},
+        }, {
             'event': 'message',
             'subscription': subscription,
             'data': {'foo': 'bar'},
@@ -1374,20 +1373,19 @@ class TestThrottle:
 
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_throttle': 0.2,
+            'options': {'throttle': 0.2},
             'data': {'foo': 'one'},
         })
 
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_throttle': 1,
-            '_throttle_key': 'other',
+            'options': {'throttle': 1, 'throttle_key': 'other'},
             'data': {'bar': 'one'},
         })
 
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_throttle': 'invalid',
+            'options': {'throttle': 'invalid'},
             'data': {'invalid': 'one'},
         })
 
@@ -1398,13 +1396,13 @@ class TestThrottle:
 
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_throttle': 0.2,
+            'options': {'throttle': 0.2},
             'data': {'foo': 'two'},
         })
 
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_throttle': 0.2,
+            'options': {'throttle': 0.2},
             'data': {'foo': 'three'},
         })
 
@@ -1432,6 +1430,10 @@ class TestThrottle:
         }, {
             'event': 'message',
             'subscription': subscription,
+            'data': {'invalid': 'one'},
+        }, {
+            'event': 'message',
+            'subscription': subscription,
             'data': {'unthrottled': 'one'},
         }, {
             'event': 'message',
@@ -1454,7 +1456,7 @@ class TestThrottle:
 
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_throttle': 0.2,
+            'options': {'throttle': 0.2},
             'data': {'foo': 'four'},
         })
 
@@ -1501,12 +1503,12 @@ class TestThrottle:
 
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_throttle': 1,
+            'options': {'throttle': 1},
             'data': {'foo': 'one'},
         })
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_throttle': 1,
+            'options': {'throttle': 1},
             'data': {'foo': 'two'},
         })
 
@@ -1562,12 +1564,12 @@ class TestThrottle:
 
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_throttle': throttle,
+            'options': {'throttle': throttle},
             'data': {'foo': 'one'},
         })
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_throttle': throttle,
+            'options': {'throttle': throttle},
             'data': {'foo': 'two'},
         })
 
@@ -1604,7 +1606,7 @@ class TestThrottle:
         # Send a third message.
         await redis.publish_json(redis_topic, {
             'subscription': subscription,
-            '_throttle': throttle,
+            'options': {'throttle': throttle},
             'data': {'foo': 'three'},
         })
 

@@ -491,10 +491,10 @@ publishing updates for a versioned object to Redis but they may arrive
 out-of-order due to network latency. Messages can be tagged with an order, and
 SocketShark will filter out older messages if a newer message arrives first. A
 float order can be supplied both in the `before_subscribe` callback's return
-value and in any published message using the `_order` key. Incoming messages
-with an order that is lower or equal to the last received highest order will
-be filtered out. Multiple independent orders can be specified using the
-optional `_order_key` key.
+value and in any published message using the `order` option in the `options`
+dict. Incoming messages with an order that is lower or equal to the last
+received highest order will be filtered out. Multiple independent orders can be
+specified using the optional `order_key` option.
 
 In the following example, the "initiating" and "completed" messages, as well as
 the "h" and "hello" messages will be delivered to subscribers:
@@ -503,8 +503,10 @@ the "h" and "hello" messages will be delivered to subscribers:
 
   PUBLISH calls.call_1 {
     "subscription": "calls.call_1",
-    "_order": 1,
-    "_order_key": "call_1.status",
+    "options": {
+        "order": 1,
+        "order_key": "call_1.status",
+    },
     "data": {
       "status": "initiating",
     }
@@ -512,8 +514,10 @@ the "h" and "hello" messages will be delivered to subscribers:
 
   PUBLISH calls.call_1 {
     "subscription": "calls.call_1",
-    "_order": 3,
-    "_order_key": "call_1.status",
+    "options": {
+        "order": 3,
+        "order_key": "call_1.status",
+    },
     "data": {
       "status": "completed",
     }
@@ -521,8 +525,10 @@ the "h" and "hello" messages will be delivered to subscribers:
 
   PUBLISH calls.call_1 {
     "subscription": "calls.call_1",
-    "_order": 2,
-    "_order_key": "call_1.status",
+    "options": {
+        "order": 2,
+        "order_key": "call_1.status",
+    },
     "data": {
       "status": "ringing",
     }
@@ -530,8 +536,10 @@ the "h" and "hello" messages will be delivered to subscribers:
 
   PUBLISH calls.call_1 {
     "subscription": "calls.call_1",
-    "_order": 1,
-    "_order_key": "call_1.note",
+    "options": {
+        "order": 1,
+        "order_key": "call_1.note",
+    },
     "data": {
       "note": "h",
     }
@@ -539,8 +547,10 @@ the "h" and "hello" messages will be delivered to subscribers:
 
   PUBLISH calls.call_1 {
     "subscription": "calls.call_1",
-    "_order": 3,
-    "_order_key": "call_1.note",
+    "options": {
+        "order": 3,
+        "order_key": "call_1.note",
+    },
     "data": {
       "note": "hello",
     }
@@ -548,8 +558,10 @@ the "h" and "hello" messages will be delivered to subscribers:
 
   PUBLISH calls.call_1 {
     "subscription": "calls.call_1",
-    "_order": 2,
-    "_order_key": "call_1.note",
+    "options": {
+        "order": 2,
+        "order_key": "call_1.note",
+    },
     "data": {
       "note": "hell",
     }
@@ -559,10 +571,16 @@ Message throttling
 ------------------
 
 Messages published by services can be throttled by specifying the time in
-seconds using `_throttle` in the published message. Note that the first message
-will be sent immediately, and the last message will be sent eventually.
+seconds using the `throttle` option in the `options` dict in the published
+message.
+
+For a constant stream of messages that are coming in shorter than the throttle
+period, the client will receive the first message immediately, then a message
+every throttle period until the stream ends, and then the final message will be
+sent after another throttle period elapses.
+
 Multiple independent throttles can be specified using the optional
-`_throttle_key` key. Throttling is performed per subscription per session.
+`throttle_key` option. Throttling is performed per subscription per session.
 
 In the example below, if the three messages are published at the same time, the
 first one will be delivered to subscribers immediately, the second one will be
@@ -573,7 +591,9 @@ pass.
 
   PUBLISH calls.stats {
     "subscription": "calls.stats",
-    "_throttle": 0.1,
+    "options": {
+        "throttle" 0.1,
+    },
     "data": {
       "n_calls": 1,
     }
@@ -581,7 +601,9 @@ pass.
 
   PUBLISH calls.stats {
     "subscription": "calls.stats",
-    "_throttle": 0.1,
+    "options": {
+        "throttle" 0.1,
+    },
     "data": {
       "n_calls": 2,
     }
@@ -589,7 +611,9 @@ pass.
 
   PUBLISH calls.stats {
     "subscription": "calls.stats",
-    "_throttle": 0.1,
+    "options": {
+        "throttle" 0.1,
+    },
     "data": {
       "n_calls": 3,
     }

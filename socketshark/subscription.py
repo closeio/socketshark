@@ -6,6 +6,43 @@ from .exceptions import EventError
 from .utils import http_post
 
 
+def _get_options(data):
+    """
+    Returns a dict of parsed message options.
+    """
+    raw_options = data.get('options', {})
+
+    # Backwards-compatibility
+    for k in ('order', 'order_key'):
+        if k not in raw_options and '_{}'.format(k) in data:
+            raw_options[k] = data['_{}'.format(k)]
+
+    options = {
+        'order': None,
+        'order_key': None,
+        'throttle': None,
+        'throttle_key': None,
+    }
+
+    if 'order' in raw_options:
+        try:
+            options['order'] = float(raw_options['order'])
+        except (TypeError, ValueError):
+            pass
+        else:
+            options['order_key'] = raw_options.get('order_key')
+
+    if 'throttle' in raw_options:
+        try:
+            options['throttle'] = float(raw_options['throttle'])
+        except (TypeError, ValueError):
+            pass
+        else:
+            options['throttle_key'] = raw_options.get('throttle_key')
+
+    return options
+
+
 class Subscription:
     """
     A subscription of a session to a service and topic.
@@ -108,39 +145,34 @@ class Subscription:
                     return False
         return True
 
-    def _should_deliver_message_order(self, data):
+    def _should_deliver_message_order(self, data, options):
         """
         Returns whether to deliver the given message based on order.
         """
+        order = options['order']
+        if order is None:
+            return True
+
         # Check whether the message is out-of-order.
-        if '_order' in data:
-            key = data.get('_order_key')
-            last_order = self.order_state.get(key)
+        key = options['order_key']
+        last_order = self.order_state.get(key)
 
-            try:
-                order = float(data['_order'])
-            except (TypeError, ValueError):
-                return False  # Don't deliver messages with invalid orders.
+        if last_order is not None and order <= last_order:
+            return False  # Message out-of-order.
 
-            if last_order is not None and order <= last_order:
-                return False  # Message out-of-order.
+        self.order_state[key] = order
 
-            self.order_state[key] = order
         return True
 
-    def _should_deliver_message_throttle(self, data):
+    def _should_deliver_message_throttle(self, data, options):
         """
         Returns whether to deliver the given message based on throttling.
         """
-        if '_throttle' not in data:
+        throttle = options['throttle']
+        if throttle is None:
             return True
 
-        try:
-            throttle = float(data['_throttle'])
-        except (TypeError, ValueError):
-            return False  # Don't deliver messages with invalid throttle.
-
-        key = data.get('_throttle_key')
+        key = options['throttle_key']
         last_throttle = self.throttle_state.get(key)
         now = time.time()
         if last_throttle:
@@ -159,9 +191,9 @@ class Subscription:
         return True
 
     def _schedule_throttled_message_task(self, key, ts_last_msg_sent, data):
-        # This should succeed since we parsed it previously.
-        throttle = float(data['_throttle'])
-        when = ts_last_msg_sent + throttle
+        options = _get_options(data)
+        # This should succeed since we parsed it previously
+        when = ts_last_msg_sent + options['throttle']
         task = asyncio.ensure_future(self._schedule_throttled_message(when,
                                                                       key))
         self.throttle_state[key] = (ts_last_msg_sent, data, task)
@@ -170,17 +202,19 @@ class Subscription:
         """
         Returns whether to deliver the given message.
         """
+        options = _get_options(data)
+
         if not self._should_deliver_message_filter_fields(data):
             self.session.trace_log.debug('message filtered', data=data,
                                          reason='fields')
             return False
 
-        if not self._should_deliver_message_order(data):
+        if not self._should_deliver_message_order(data, options):
             self.session.trace_log.debug('message filtered', data=data,
                                          reason='order')
             return False
 
-        if not self._should_deliver_message_throttle(data):
+        if not self._should_deliver_message_throttle(data, options):
             self.session.trace_log.debug('message filtered', data=data,
                                          reason='throttle')
             return False
