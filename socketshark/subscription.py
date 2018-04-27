@@ -12,11 +12,6 @@ def _get_options(data):
     """
     raw_options = data.get('options', {})
 
-    # Backwards-compatibility
-    for k in ('order', 'order_key'):
-        if k not in raw_options and '_{}'.format(k) in data:
-            raw_options[k] = data['_{}'.format(k)]
-
     options = {
         'order': None,
         'order_key': None,
