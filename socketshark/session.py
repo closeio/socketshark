@@ -75,10 +75,13 @@ class Session:
         if not subscription.should_deliver_message(data):
             return
 
+        await self.send_message(subscription, data['data'])
+
+    async def send_message(self, subscription, data):
         msg = {
             'event': 'message',
             'subscription': subscription.name,
-            'data': data['data'],
+            'data': data,
         }
         msg.update(subscription.extra_data)
         await self.send(msg)

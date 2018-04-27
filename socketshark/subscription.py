@@ -1,6 +1,46 @@
+import asyncio
+import time
+
 from . import constants as c
 from .exceptions import EventError
 from .utils import http_post
+
+
+def _get_options(data):
+    """
+    Returns a dict of parsed message options.
+    """
+    raw_options = data.get('options', {})
+
+    # Backwards-compatibility
+    for k in ('order', 'order_key'):
+        if k not in raw_options and '_{}'.format(k) in data:
+            raw_options[k] = data['_{}'.format(k)]
+
+    options = {
+        'order': None,
+        'order_key': None,
+        'throttle': None,
+        'throttle_key': None,
+    }
+
+    if 'order' in raw_options:
+        try:
+            options['order'] = float(raw_options['order'])
+        except (TypeError, ValueError):
+            pass
+        else:
+            options['order_key'] = raw_options.get('order_key')
+
+    if 'throttle' in raw_options:
+        try:
+            options['throttle'] = float(raw_options['throttle'])
+        except (TypeError, ValueError):
+            pass
+        else:
+            options['throttle_key'] = raw_options.get('throttle_key')
+
+    return options
 
 
 class Subscription:
@@ -27,6 +67,15 @@ class Subscription:
 
         # order key -> numeric order (the default order key is None)
         self.order_state = {}
+
+        # throttle key -> (last message sent timestamp, latest message, task)
+        # If this is set, the possible states are:
+        # (ts, None, None) -- No messages are pending.
+        # (ts, msg,  task) -- The given message is scheduled to be sent by the
+        #                     given asyncio task.
+        # (ts, None, task) -- A message is currently being sent by the given
+        #                     asyncio task.
+        self.throttle_state = {}
 
     def validate(self):
         if not self.service or not self.topic:
@@ -96,41 +145,122 @@ class Subscription:
                     return False
         return True
 
-    def _should_deliver_message_order(self, data):
+    def _should_deliver_message_order(self, data, options):
         """
         Returns whether to deliver the given message based on order.
         """
+        order = options['order']
+        if order is None:
+            return True
+
         # Check whether the message is out-of-order.
-        if '_order' in data:
-            key = data.get('_order_key')
-            last_order = self.order_state.get(key)
+        key = options['order_key']
+        last_order = self.order_state.get(key)
 
-            try:
-                order = float(data['_order'])
-            except (TypeError, ValueError):
-                return False  # Don't deliver messages with invalid orders.
+        if last_order is not None and order <= last_order:
+            return False  # Message out-of-order.
 
-            if last_order is not None and order <= last_order:
-                return False  # Message out-of-order.
+        self.order_state[key] = order
 
-            self.order_state[key] = order
         return True
+
+    def _should_deliver_message_throttle(self, data, options):
+        """
+        Returns whether to deliver the given message based on throttling.
+        """
+        throttle = options['throttle']
+        if throttle is None:
+            return True
+
+        key = options['throttle_key']
+        last_throttle = self.throttle_state.get(key)
+        now = time.time()
+        if last_throttle:
+            ts_last_msg_sent, pending_msg, task = last_throttle
+            if task:  # We'll update the message and let the task send it.
+                self.throttle_state[key] = (ts_last_msg_sent, data, task)
+                return False
+            elif now - ts_last_msg_sent < throttle:
+                # Schedule a task to send the message.
+                self._schedule_throttled_message_task(key, ts_last_msg_sent,
+                                                      data)
+                return False
+
+        # Send current message and store time.
+        self.throttle_state[key] = (now, None, None)
+        return True
+
+    def _schedule_throttled_message_task(self, key, ts_last_msg_sent, data):
+        options = _get_options(data)
+        # This should succeed since we parsed it previously
+        when = ts_last_msg_sent + options['throttle']
+        task = asyncio.ensure_future(self._schedule_throttled_message(when,
+                                                                      key))
+        self.throttle_state[key] = (ts_last_msg_sent, data, task)
 
     def should_deliver_message(self, data):
         """
         Returns whether to deliver the given message.
         """
+        options = _get_options(data)
+
         if not self._should_deliver_message_filter_fields(data):
             self.session.trace_log.debug('message filtered', data=data,
                                          reason='fields')
             return False
 
-        if not self._should_deliver_message_order(data):
+        if not self._should_deliver_message_order(data, options):
             self.session.trace_log.debug('message filtered', data=data,
                                          reason='order')
             return False
 
+        if not self._should_deliver_message_throttle(data, options):
+            self.session.trace_log.debug('message filtered', data=data,
+                                         reason='throttle')
+            return False
+
         return True
+
+    async def _schedule_throttled_message(self, when, throttle_key):
+        delay = when - time.time()
+        self.session.trace_log.debug('throttled message scheduled',
+                                     throttle_key=throttle_key, delay=delay)
+        try:
+            await asyncio.sleep(delay)
+            await self._send_throttled_message(throttle_key)
+        except asyncio.CancelledError:  # Cancelled by unsubscribe
+            self.session.trace_log.debug('throttled message canceled',
+                                         throttle_key=throttle_key)
+        except Exception:
+            self.session.log.exception('unhandled exception when sending '
+                                       'throttled message')
+
+    async def _send_throttled_message(self, throttle_key):
+        # We've unsubscribed meanwhile.
+        if self.name not in self.session.subscriptions:
+            self.session.trace_log.debug('throttled message subscription '
+                                         'invalid', throttle_key=throttle_key)
+            return
+
+        last_throttle = self.throttle_state[throttle_key]
+        ts_last_msg_sent, pending_msg, task = last_throttle
+        now = time.time()
+        self.throttle_state[throttle_key] = (now, None, task)
+        self.session.trace_log.debug('sending throttled message',
+                                     throttle_key=throttle_key)
+        await self.session.send_message(self, pending_msg['data'])
+
+        ts_last_msg_sent, pending_msg, task = self.throttle_state[throttle_key]
+        # A throttled message was submitted while we were sending.
+        # Schedule another task.
+        if pending_msg:
+            self.session.trace_log.debug('throttled message submitted while '
+                                         'sending', throttle_key=throttle_key)
+            self._schedule_throttled_message_task(throttle_key,
+                                                  ts_last_msg_sent,
+                                                  pending_msg)
+        else:
+            self.throttle_state[throttle_key] = (now, None, None)
 
     async def subscribe(self, event):
         """
@@ -176,6 +306,15 @@ class Subscription:
             if event:
                 await event.send_ok(result['data'])
 
+    async def cleanup_subscription(self):
+        await self.shark.service_receiver.delete_subscription(
+            self.session, self.name)
+
+        for key, throttle in self.throttle_state.items():
+            ts_last_msg_sent, pending_msg, task = throttle
+            if task:
+                task.cancel()
+
     async def unsubscribe(self, event):
         """
         Unsubscribes from the subscription.
@@ -186,8 +325,7 @@ class Subscription:
         result = await self.before_unsubscribe()
 
         del self.session.subscriptions[self.name]
-        await self.shark.service_receiver.delete_subscription(
-            self.session, self.name)
+        await self.cleanup_subscription()
 
         await event.send_ok(result.get('data'))
 
@@ -199,8 +337,7 @@ class Subscription:
         deleting the subscription from the session's subscriptions array.
         This method is called when a session is disconnected.
         """
-        await self.shark.service_receiver.delete_subscription(
-            self.session, self.name)
+        await self.cleanup_subscription()
 
         await self.before_unsubscribe(raise_error=False)
         await self.on_unsubscribe()
