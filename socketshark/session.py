@@ -86,6 +86,18 @@ class Session:
         msg.update(subscription.extra_data)
         await self.send(msg)
 
+    async def send_unsubscribe(self, subscription, data=None, error=None):
+        msg = {
+            'event': 'unsubscribe',
+            'subscription': subscription.name,
+        }
+        if data is not None:
+            msg['data'] = data
+        if error is not None:
+            msg['error'] = error
+        msg.update(subscription.extra_data)
+        await self.send(msg)
+
     async def send(self, data):
         """
         Sends a JSON message to the client.

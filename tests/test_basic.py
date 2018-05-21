@@ -63,6 +63,11 @@ TEST_CONFIG = {
             'authorizer': 'http://auth-service/auth/authorizer/',
             'extra_fields': ['extra'],
         },
+        'periodic_authorizer': {
+            'require_authentication': True,
+            'authorizer': 'http://auth-service/auth/authorizer/',
+            'authorization_renewal_period': 0.2,
+        },
         'complex': {
             'require_authentication': True,
             'authorizer': 'http://auth-service/auth/authorizer/',
@@ -725,6 +730,80 @@ class TestSession:
                 'subscription': 'authorizer.topic',
                 'session_id': 'sess_123',
                 'extra': 'foo',
+            }
+
+        assert client.log == []
+
+        await shark.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_subscription_periodic_authorizer(self):
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+
+        await self._auth_session(session)
+
+        with aioresponses() as mock:
+            # Mock authorizer
+            authorizer_url = 'http://auth-service/auth/authorizer/'
+
+            mock.post(authorizer_url, payload={
+                'status': 'ok',
+            })
+
+            mock.post(authorizer_url, payload={
+                'status': 'ok',
+            })
+
+            mock.post(authorizer_url, payload={
+                'status': 'error',
+            })
+
+            mock.post(authorizer_url, payload={
+                'status': 'error',
+                'error': 'no longer authorized',
+            })
+
+            await session.on_client_event({
+                'event': 'subscribe',
+                'subscription': 'periodic_authorizer.topic',
+            })
+
+            assert client.log.pop() == {
+                'event': 'subscribe',
+                'subscription': 'periodic_authorizer.topic',
+                'status': 'ok',
+            }
+
+            await session.on_client_event({
+                'event': 'subscribe',
+                'subscription': 'periodic_authorizer.topic2',
+            })
+
+            assert client.log.pop() == {
+                'event': 'subscribe',
+                'subscription': 'periodic_authorizer.topic2',
+                'status': 'ok',
+            }
+
+            await asyncio.sleep(0.1)
+
+            assert client.log == []
+
+            await asyncio.sleep(0.2)
+
+            assert client.log.pop(0) == {
+                'event': 'unsubscribe',
+                'subscription': 'periodic_authorizer.topic',
+                'error': c.ERR_UNAUTHORIZED,
+            }
+
+            assert client.log.pop(0) == {
+                'event': 'unsubscribe',
+                'subscription': 'periodic_authorizer.topic2',
+                'error': 'no longer authorized',
             }
 
         assert client.log == []
