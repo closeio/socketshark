@@ -62,7 +62,7 @@ class Subscription:
             self.extra_data = {field: data[field] for field in extra_fields
                                if field in data}
             self.authorizer_fields = \
-                    self.service_config.get('authorizer_fields', [])
+                self.service_config.get('authorizer_fields', [])
             self.authorizer_data = {}
         else:
             self.service_config = None
@@ -116,8 +116,8 @@ class Subscription:
         return {'status': 'ok'}
 
     async def authorize_subscription(self):
-        data = await self.perform_service_request('authorizer',
-                error_message=c.ERR_UNAUTHORIZED)
+        data = await self.perform_service_request(
+            'authorizer', error_message=c.ERR_UNAUTHORIZED)
         authorizer_data = {field: data[field] for field in
                            self.authorizer_fields if field in data}
         self.authorizer_data = authorizer_data
