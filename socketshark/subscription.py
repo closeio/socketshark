@@ -61,9 +61,14 @@ class Subscription:
             extra_fields = self.service_config.get('extra_fields', [])
             self.extra_data = {field: data[field] for field in extra_fields
                                if field in data}
+            self.authorizer_fields = \
+                    self.service_config.get('authorizer_fields', [])
+            self.authorizer_data = {}
         else:
             self.service_config = None
             self.extra_data = {}
+            self.authorizer_fields = []
+            self.authorizer_data = {}
 
         # order key -> numeric order (the default order key is None)
         self.order_state = {}
@@ -92,6 +97,7 @@ class Subscription:
         """
         data = {'subscription': self.name}
         data.update(self.extra_data)
+        data.update(self.authorizer_data)
         data.update(self.session.auth_info)
         return data
 
@@ -110,8 +116,11 @@ class Subscription:
         return {'status': 'ok'}
 
     async def authorize_subscription(self):
-        await self.perform_service_request('authorizer',
-                                           error_message=c.ERR_UNAUTHORIZED)
+        data = await self.perform_service_request('authorizer',
+                error_message=c.ERR_UNAUTHORIZED)
+        authorizer_data = {field: data[field] for field in
+                           self.authorizer_fields if field in data}
+        self.authorizer_data = authorizer_data
 
     async def periodic_authorizer(self):
         period = self.service_config['authorization_renewal_period']
@@ -123,8 +132,7 @@ class Subscription:
             try:
                 self.session.log.debug('verifying authorization',
                                        subscription=self.name)
-                await self.perform_service_request(
-                    'authorizer', error_message=c.ERR_UNAUTHORIZED)
+                await self.authorize_subscription()
                 self.session.log.debug('authorization verified',
                                        subscription=self.name)
             except EventError as e:

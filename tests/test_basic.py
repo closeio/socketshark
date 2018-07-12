@@ -71,6 +71,7 @@ TEST_CONFIG = {
         'complex': {
             'require_authentication': True,
             'authorizer': 'http://auth-service/auth/authorizer/',
+            'authorizer_fields': ['capabilities'],
             'extra_fields': ['extra'],
             'before_subscribe': 'http://my-service/subscribe/',
             'before_unsubscribe': 'http://my-service/unsubscribe/',
@@ -735,6 +736,65 @@ class TestSession:
         assert client.log == []
 
         await shark.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_subscription_authorizer_data(self):
+        """
+        Test authorizer fields & data.
+        """
+
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+
+        conf = TEST_CONFIG['SERVICES']['complex']
+
+        await self._auth_session(session)
+
+        with aioresponses() as mock:
+            # Mock authorizer
+            mock.post(conf['authorizer'], payload={
+                'status': 'ok',
+                'capabilities': 'foo',
+                'plan_type': 'bar',
+            })
+
+            endpoints = (
+                conf['before_subscribe'],
+                conf['on_subscribe'],
+                conf['before_unsubscribe'],
+                conf['on_unsubscribe'],
+            )
+
+            for endpoint in endpoints:
+                mock.post(endpoint, payload={'status': 'ok'})
+
+            await session.on_client_event({
+                'event': 'subscribe',
+                'subscription': 'complex.topic',
+            })
+
+            assert client.log.pop() == {
+                'event': 'subscribe',
+                'subscription': 'complex.topic',
+                'status': 'ok',
+            }
+
+            assert client.log == []
+
+            await shark.shutdown()
+
+            for endpoint in endpoints:
+                requests = mock.requests[('POST', endpoint)]
+                assert len(requests) == 1
+                r = requests[0]
+
+                assert r.kwargs['json'] == {
+                    'subscription': 'complex.topic',
+                    'session_id': 'sess_123',
+                    'capabilities': 'foo',
+                }
 
     @pytest.mark.asyncio
     async def test_subscription_periodic_authorizer(self):
