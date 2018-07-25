@@ -68,6 +68,14 @@ TEST_CONFIG = {
             'authorizer': 'http://auth-service/auth/authorizer/',
             'authorization_renewal_period': 0.2,
         },
+        'periodic_authorizer_with_fields': {
+            'require_authentication': True,
+            'authorizer': 'http://auth-service/auth/authorizer/',
+            'authorizer_fields': ['capabilities'],
+            'authorization_renewal_period': 0.2,
+            'on_subscribe': 'http://my-service/on_subscribe/',
+            'on_authorization_change': 'http://my-service/on_auth_change/',
+        },
         'complex': {
             'require_authentication': True,
             'authorizer': 'http://auth-service/auth/authorizer/',
@@ -869,6 +877,71 @@ class TestSession:
         assert client.log == []
 
         await shark.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_subscription_authorizer_data_periodic(self):
+        """
+        Test authorization change callback is called when authorizer fields
+        change during periodic authorization.
+        """
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+
+        await self._auth_session(session)
+
+        conf = TEST_CONFIG['SERVICES']['periodic_authorizer_with_fields']
+
+        with aioresponses() as mock:
+            # Mock authorizer
+            mock.post(conf['authorizer'], payload={
+                'status': 'ok',
+                'capabilities': 'foo',
+            })
+
+            mock.post(conf['authorizer'], payload={
+                'status': 'ok',
+                'capabilities': 'bar',
+            })
+
+            mock.post(conf['on_subscribe'], payload={
+                'status': 'ok',
+            })
+            mock.post(conf['on_authorization_change'], payload={
+                'status': 'ok',
+            })
+
+            await session.on_client_event({
+                'event': 'subscribe',
+                'subscription': 'periodic_authorizer_with_fields.topic',
+            })
+
+            assert client.log.pop() == {
+                'event': 'subscribe',
+                'subscription': 'periodic_authorizer_with_fields.topic',
+                'status': 'ok',
+            }
+
+            await asyncio.sleep(0.2)
+
+            assert client.log == []
+
+            await shark.shutdown()
+
+            request, = mock.requests[('POST', conf['on_subscribe'])]
+            assert request.kwargs['json'] == {
+                'subscription': 'periodic_authorizer_with_fields.topic',
+                'session_id': 'sess_123',
+                'capabilities': 'foo',
+            }
+
+            request, = mock.requests[('POST', conf['on_authorization_change'])]
+            assert request.kwargs['json'] == {
+                'subscription': 'periodic_authorizer_with_fields.topic',
+                'session_id': 'sess_123',
+                'capabilities': 'bar',
+            }
 
     @pytest.mark.asyncio
     async def test_subscription_complex(self):

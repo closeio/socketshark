@@ -63,12 +63,11 @@ class Subscription:
                                if field in data}
             self.authorizer_fields = \
                 self.service_config.get('authorizer_fields', [])
-            self.authorizer_data = {}
         else:
             self.service_config = None
             self.extra_data = {}
             self.authorizer_fields = []
-            self.authorizer_data = {}
+        self.authorizer_data = None
 
         # order key -> numeric order (the default order key is None)
         self.order_state = {}
@@ -97,7 +96,8 @@ class Subscription:
         """
         data = {'subscription': self.name}
         data.update(self.extra_data)
-        data.update(self.authorizer_data)
+        if self.authorizer_data:
+            data.update(self.authorizer_data)
         data.update(self.session.auth_info)
         return data
 
@@ -118,9 +118,22 @@ class Subscription:
     async def authorize_subscription(self):
         data = await self.perform_service_request(
             'authorizer', error_message=c.ERR_UNAUTHORIZED)
+
         authorizer_data = {field: data[field] for field in
                            self.authorizer_fields if field in data}
+
+        # If authorizer fields changed during periodic authorization, invoke
+        # a special callback.
+        fields_changed = (
+            self.authorizer_data is not None and
+            authorizer_data != self.authorizer_data
+        )
+
         self.authorizer_data = authorizer_data
+
+        if fields_changed:
+            await self.perform_service_request('on_authorization_change',
+                                               raise_error=False)
 
     async def periodic_authorizer(self):
         period = self.service_config['authorization_renewal_period']

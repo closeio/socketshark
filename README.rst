@@ -319,6 +319,8 @@ service:
 - ``on_message``: URL to call when a client sends a message to a topic.
 - ``before_unsubscribe``: URL to call when a client attempts to unsubscribe.
 - ``on_unsubscribe``: URL to call after a client unsubscribed from a topic.
+- ``on_authorization_change``: URL to call after if any authorizer fields
+  change during periodic authorization.
 
 Each HTTP endpoint is accessed via a POST request containing a JSON body.
 
