@@ -77,6 +77,8 @@ class Subscription:
         #                     asyncio task.
         self.throttle_state = {}
 
+        self._periodic_authorizer_task = None
+
     def validate(self):
         if not self.service or not self.topic:
             raise EventError(c.ERR_INVALID_SUBSCRIPTION_FORMAT)
@@ -110,6 +112,26 @@ class Subscription:
     async def authorize_subscription(self):
         await self.perform_service_request('authorizer',
                                            error_message=c.ERR_UNAUTHORIZED)
+
+    async def periodic_authorizer(self):
+        period = self.service_config['authorization_renewal_period']
+        self.session.trace_log.debug('initializing periodic authorizer',
+                                     subscription=self.name,
+                                     period=period)
+        while True:
+            await asyncio.sleep(period)
+            try:
+                self.session.log.debug('verifying authorization',
+                                       subscription=self.name)
+                await self.perform_service_request(
+                    'authorizer', error_message=c.ERR_UNAUTHORIZED)
+                self.session.log.debug('authorization verified',
+                                       subscription=self.name)
+            except EventError as e:
+                self.session.log.info('authorization expired',
+                                      subscription=self.name,
+                                      error=e.error)
+                await self.self_unsubscribe(e.error)
 
     async def before_subscribe(self):
         return await self.perform_service_request('before_subscribe')
@@ -290,6 +312,10 @@ class Subscription:
         await self.shark.service_receiver.confirm_subscription(
             self.session, self.name)
 
+        if 'authorization_renewal_period' in self.service_config:
+            self._periodic_authorizer_task = asyncio.ensure_future(
+                self.periodic_authorizer())
+
         await self.on_subscribe()
 
     async def message(self, event):
@@ -315,6 +341,9 @@ class Subscription:
             if task:
                 task.cancel()
 
+        if self._periodic_authorizer_task:
+            self._periodic_authorizer_task.cancel()
+
     async def unsubscribe(self, event):
         """
         Unsubscribes from the subscription.
@@ -330,6 +359,17 @@ class Subscription:
         await event.send_ok(result.get('data'))
 
         await self.on_unsubscribe()
+
+    async def self_unsubscribe(self, error):
+        """
+        Unsubscribes from the subscription (not triggered by the user).
+        """
+        del self.session.subscriptions[self.name]
+        await self.cleanup_subscription()
+
+        result = await self.before_unsubscribe(raise_error=False)
+        await self.on_unsubscribe()
+        await self.session.send_unsubscribe(self, result.get('data'), error)
 
     async def force_unsubscribe(self):
         """

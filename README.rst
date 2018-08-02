@@ -63,6 +63,8 @@ Features
 - Authorization
 
   Pub-sub subscriptions can be authorized using a custom HTTP endpoint.
+  SocketShark can periodically reauthorize subscriptions to ensure subscribers
+  are unsubscribed if they're no longer authorized.
 
 - Custom fields
 
@@ -380,6 +382,20 @@ Example server responses (successful and unsuccessful):
 .. code:: json
 
   {"status": "error", "error": "Author ID does not match book ID."}
+
+During an active subscription, SocketShark will periodically query the
+authorizer endpoint if ``authorization_renewal_period`` is set to the number
+of seconds. The user will be unsubscribed by SocketShark if the authorization
+is no longer valid and an ``unsubscribe`` message will be sent to the client,
+e.g.:
+
+.. code:: json
+
+  {
+    "event": "unsubscribe",
+    "subscription": "books.book_1",
+    "error": "Unauthorized."
+  }
 
 Before subscribe
 ~~~~~~~~~~~~~~~~
