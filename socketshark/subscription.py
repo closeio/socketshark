@@ -154,6 +154,26 @@ class Subscription:
                                       error=e.error)
                 await self.self_unsubscribe(e.error)
 
+    async def periodic_authorizer(self):
+        period = self.service_config['authorization_renewal_period']
+        self.session.trace_log.debug('initializing periodic authorizer',
+                                     subscription=self.name,
+                                     period=period)
+        while True:
+            await asyncio.sleep(period)
+            try:
+                self.session.log.debug('verifying authorization',
+                                       subscription=self.name)
+                await self.perform_service_request(
+                    'authorizer', error_message=c.ERR_UNAUTHORIZED)
+                self.session.log.debug('authorization verified',
+                                       subscription=self.name)
+            except EventError as e:
+                self.session.log.info('authorization expired',
+                                      subscription=self.name,
+                                      error=e.error)
+                await self.self_unsubscribe(e.error)
+
     async def before_subscribe(self):
         return await self.perform_service_request('before_subscribe')
 
