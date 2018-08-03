@@ -1,21 +1,44 @@
 version: 2
 
+workflows:
+  version: 2
+  workflow:
+    jobs:
+      - test-3.5
+      - test-3.6
+      - test-3.7
+
+defaults: &defaults
+  working_directory: ~/code
+  environment:
+    STRICT_WARNINGS: '1'
+  steps:
+  - checkout
+  - run:
+      name: Install dependencies
+      command: |
+        sudo pip install -r requirements.txt
+        sudo pip install -r requirements_tests.txt
+  - run:
+      name: Lint
+      command: flake8
+  - run:
+      name: Test
+      command: PYTHONPATH=. pytest
+
 jobs:
-  build:
+  test-3.5:
+    <<: *defaults
     docker:
     - image: circleci/python:3.5
-    - image: redis:3.2.4-alpine
-    working_directory: ~/code
-    steps:
-    - checkout
-    - run:
-        name: Install dependencies
-        command: |
-          sudo pip install -r requirements.txt
-          sudo pip install -r requirements_tests.txt
-    - run:
-        name: Flake8
-        command: flake8
-    - run:
-        name: Test
-        command: PYTHONPATH=. pytest
+    - image: redis:3.2.12-alpine
+  test-3.6:
+    <<: *defaults
+    docker:
+    - image: circleci/python:3.6
+    - image: redis:3.2.12-alpine
+  test-3.7:
+    <<: *defaults
+    docker:
+    - image: circleci/python:3.7
+    - image: redis:3.2.12-alpine
