@@ -6,7 +6,6 @@ from unittest.mock import patch
 
 import aiohttp
 import aioredis
-from aioredis.util import create_future
 from aioresponses import aioresponses
 import pytest
 
@@ -1478,7 +1477,7 @@ class TestSession:
                 return original_ping(*args, **kwargs)
             else:
                 loop = asyncio.get_event_loop()
-                return create_future(loop)
+                return loop.create_future()
         dummy_ping.n_pings = 0
 
         shark = SocketShark(TEST_CONFIG)
@@ -2052,13 +2051,13 @@ class TestWebsocket:
                 # Respond to ping in time
                 msg = await ws.receive()
                 assert msg.type == aiohttp.WSMsgType.PING
-                ws.pong(msg.data)
+                await ws.pong(msg.data)
 
                 # Respond to ping late
                 msg = await ws.receive()
                 assert msg.type == aiohttp.WSMsgType.PING
                 await asyncio.sleep(0.1)
-                ws.pong(msg.data)
+                await ws.pong(msg.data)
 
                 # Ensure we get disconnected
                 msg = await ws.receive()
