@@ -127,8 +127,7 @@ class Subscription:
         self.authorizer_data = authorizer_data
 
         if fields_changed:
-            await self.perform_service_request('on_authorization_change',
-                                               raise_error=False)
+            await self.perform_service_request('on_authorization_change')
 
     async def periodic_authorizer(self):
         period = self.service_config['authorization_renewal_period']
