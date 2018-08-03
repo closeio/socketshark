@@ -41,6 +41,10 @@ SERVICES = {
         # subscription information.
         'authorizer': 'http://auth-service/auth/authorizer/',
 
+        # Fields returned by the authorizer callback that are passed to all
+        # subsequent service callbacks.
+        'authorizer_fields': ['capabilities'],
+
         # If this service requires extra fields to fulfill a subscription,
         # you may provide them here. They are passed to all URL callbacks.
         'extra_fields': ['organization_id'],
