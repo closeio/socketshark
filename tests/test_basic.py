@@ -923,11 +923,9 @@ class TestSession:
                 'status': 'ok',
             }
 
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(0.3)
 
             assert client.log == []
-
-            await shark.shutdown()
 
             request, = mock.requests[('POST', conf['on_subscribe'])]
             assert request.kwargs['json'] == {
@@ -942,6 +940,8 @@ class TestSession:
                 'session_id': 'sess_123',
                 'capabilities': 'bar',
             }
+
+            await shark.shutdown()
 
     @pytest.mark.asyncio
     async def test_subscription_complex(self):
