@@ -1,5 +1,9 @@
 from setuptools import setup
 
+with open('README.rst', encoding='utf-8') as file:
+    long_description = file.read()
+
+
 install_requires = [
     'aiohttp',
     'aioredis',
@@ -20,6 +24,7 @@ setup(
     url='http://github.com/closeio/socketshark',
     license='MIT',
     description='WebSocket message router',
+    long_description=long_description,
     test_suite='tests',
     tests_require=tests_require,
     platforms='any',
