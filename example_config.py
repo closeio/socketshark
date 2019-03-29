@@ -50,7 +50,8 @@ SERVICES = {
         'extra_fields': ['organization_id'],
 
         # If filter fields are specified, messages can be published only to
-        # sessions that match the given fields.
+        # sessions that match the given fields (either from extra_fields or
+        # from authorizer_fields).
         'filter_fields': ['user_id'],
 
         # Optional URL which is called before subscribing to or unsubscribing

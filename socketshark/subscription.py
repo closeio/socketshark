@@ -53,8 +53,8 @@ class Subscription:
             self.service = self.topic = None
         if self.service in config['SERVICES']:
             self.service_config = config['SERVICES'][self.service]
-            extra_fields = self.service_config.get('extra_fields', [])
-            self.extra_data = {field: data[field] for field in extra_fields
+            self.extra_fields = self.service_config.get('extra_fields', [])
+            self.extra_data = {field: data[field] for field in self.extra_fields
                                if field in data}
             self.authorizer_fields = \
                 self.service_config.get('authorizer_fields', [])
@@ -173,11 +173,15 @@ class Subscription:
         Returns whether to deliver the given message based on filter feilds.
         """
         # Check whether the message is filtered by comparing any defined
-        # filter_fields to auth_info.
+        # filter_fields to auth_info and extra_fields.
         filter_fields = self.service_config.get('filter_fields', [])
         for field in filter_fields:
             if field in data:
-                if self.session.auth_info.get(field) != data[field]:
+                if field in self.extra_fields:
+                    if self.extra_data.get(field) != data[field]:
+                        # Message doesn't match extra fields.
+                        return False
+                elif self.session.auth_info.get(field) != data[field]:
                     # Message doesn't match auth fields.
                     return False
         return True
