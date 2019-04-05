@@ -47,7 +47,8 @@ TEST_CONFIG = {
         'empty': {},
         'simple': {
             'require_authentication': False,
-            'filter_fields': ['session_id'],
+            'filter_fields': ['session_id', 'extra'],
+            'extra_fields': ['extra']
         },
         'simple_auth': {
             'require_authentication': True,
@@ -1460,6 +1461,60 @@ class TestSession:
             'event': 'message',
             'subscription': subscription,
             'data': {'foo': 'bar'},
+        }]
+
+        await shark.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_filter_extra_fields(self):
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+
+        subscription = 'simple.topic'
+
+        await session.on_client_event({
+            'event': 'subscribe',
+            'subscription': subscription,
+            'extra': 'bar',
+        })
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'subscription': subscription,
+            'status': 'ok',
+            'extra': 'bar',
+        }
+
+        # Test message from server to client
+        redis_settings = TEST_CONFIG['REDIS']
+        redis = await aioredis.create_redis((
+            redis_settings['host'], redis_settings['port']))
+        redis_topic = redis_settings['channel_prefix'] + subscription
+
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            'extra': 'foo',
+            'data': {'test': 'foo'},
+        })
+
+        await redis.publish_json(redis_topic, {
+            'subscription': subscription,
+            'extra': 'bar',
+            'data': {'test': 'bar'},
+        })
+
+        # Wait for Redis to propagate the messages
+        await asyncio.sleep(0.1)
+
+        has_messages = await shark.run_service_receiver(once=True)
+        assert has_messages
+
+        assert client.log == [{
+            'event': 'message',
+            'subscription': subscription,
+            'extra': 'bar',
+            'data': {'test': 'bar'},
         }]
 
         await shark.shutdown()
