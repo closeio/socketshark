@@ -6,10 +6,10 @@ SocketShark
 
 *SocketShark* is a WebSocket message router based on Python/Redis/asyncio.
 
-(Interested in working on projects like this? `Close.io`_ is looking for `great engineers`_ to join our team)
+(Interested in working on projects like this? `Close`_ is looking for `great engineers`_ to join our team)
 
-.. _Close.io: http://close.io
-.. _great engineers: http://jobs.close.io
+.. _Close: http://close.com
+.. _great engineers: http://jobs.close.com
 
 .. contents::
 
