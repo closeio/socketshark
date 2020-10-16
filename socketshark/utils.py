@@ -1,7 +1,7 @@
 import asyncio
 import ssl
 import time
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 import aiohttp
 
@@ -57,14 +57,10 @@ def _scrub_url(url):
         # url_parts tuple doesn't include password in _fields
         # so can't easily use _replace to get rid of password
         # and then call urlunsplit to reconstruct url.
-        if url_parts.port is None:
-            port = ''
-        else:
-            port = f':{url_parts.port}'
-        return (
-            f'{url_parts.scheme}://*****:*****@{url_parts.hostname}'
-            f'{port}{url_parts.path}?{url_parts.query}'
-        )
+        _, _, hostinfo = url_parts.netloc.rpartition('@')
+        scrubbed_netloc = f'*****:*****@{hostinfo}'
+        scrubbed_url_parts = url_parts._replace(netloc=scrubbed_netloc)
+        return urlunsplit(scrubbed_url_parts)
 
 
 async def http_post(shark, url, data):
