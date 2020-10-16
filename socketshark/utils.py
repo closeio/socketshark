@@ -1,5 +1,7 @@
 import asyncio
 import ssl
+import time
+from urllib.parse import urlsplit
 
 import aiohttp
 
@@ -37,8 +39,24 @@ def _get_rate_limit_wait(log, resp, opts):
     return wait
 
 
+def _scrub_url(url):
+    """Scrub URL username and password."""
+    url_parts = urlsplit(url)
+    if url_parts.password is None:
+        return url
+    else:
+        # url_parts tuple doesn't include password in _fields
+        # so can't easily use _replace to get rid of password
+        # and then call urlunsplit to reconstruct url.
+        if url_parts.port is None:
+            port = ''
+        else:
+            port = f':{url_parts.port}'
+        return f'{url_parts.scheme}://*****:*****@{url_parts.hostname}{port}{url_parts.path}?{url_parts.query}'
+
+
 async def http_post(shark, url, data):
-    log = shark.log.bind(url=url)
+    log = shark.log.bind(url=_scrub_url(url))
     opts = shark.config['HTTP']
     if opts.get('ssl_cafile'):
         ssl_context = ssl.create_default_context(cafile=opts['ssl_cafile'])
@@ -51,7 +69,8 @@ async def http_post(shark, url, data):
             if n > 0:
                 await asyncio.sleep(wait)
             try:
-                log.debug('http request', data=data)
+                start_time = time.time()
+                response_data = None
                 async with session.post(url, json=data,
                                         timeout=opts['timeout']) as resp:
                     if resp.status == 429:  # Too many requests.
@@ -60,11 +79,12 @@ async def http_post(shark, url, data):
                     else:
                         wait = opts['wait']
                     resp.raise_for_status()
-                    data = await resp.json()
-                    log.debug('http response', data=data)
-                    return data
+                    response_data = await resp.json()
+                    return response_data
             except aiohttp.ClientError:
                 log.exception('unhandled exception in http_post')
             except asyncio.TimeoutError:
                 log.exception('timeout in http_post')
+            finally:
+                log.debug('http request', request=data, response=response_data, duration=time.time() - start_time)
         return {'status': 'error', 'error': c.ERR_SERVICE_UNAVAILABLE}
