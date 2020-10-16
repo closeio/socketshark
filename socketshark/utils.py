@@ -27,15 +27,24 @@ def _get_rate_limit_wait(log, resp, opts):
             if 0 <= new_wait <= max_wait:
                 wait = new_wait
             elif new_wait > max_wait:
-                log.warn('rate reset value too high',
-                         name=header_name, value=header_value)
+                log.warn(
+                    'rate reset value too high',
+                    name=header_name,
+                    value=header_value,
+                )
                 wait = max_wait
             else:
-                log.warn('invalid rate reset value',
-                         name=header_name, value=header_value)
+                log.warn(
+                    'invalid rate reset value',
+                    name=header_name,
+                    value=header_value,
+                )
         except ValueError:
-            log.warn('invalid rate reset value',
-                     name=header_name, value=header_value)
+            log.warn(
+                'invalid rate reset value',
+                name=header_name,
+                value=header_value,
+            )
     return wait
 
 
@@ -52,7 +61,10 @@ def _scrub_url(url):
             port = ''
         else:
             port = f':{url_parts.port}'
-        return f'{url_parts.scheme}://*****:*****@{url_parts.hostname}{port}{url_parts.path}?{url_parts.query}'
+        return (
+            f'{url_parts.scheme}://*****:*****@{url_parts.hostname}'
+            f'{port}{url_parts.path}?{url_parts.query}'
+        )
 
 
 async def http_post(shark, url, data):
@@ -71,8 +83,9 @@ async def http_post(shark, url, data):
             try:
                 start_time = time.time()
                 response_data = None
-                async with session.post(url, json=data,
-                                        timeout=opts['timeout']) as resp:
+                async with session.post(
+                    url, json=data, timeout=opts['timeout']
+                ) as resp:
                     if resp.status == 429:  # Too many requests.
                         wait = _get_rate_limit_wait(log, resp, opts)
                         continue
@@ -86,5 +99,10 @@ async def http_post(shark, url, data):
             except asyncio.TimeoutError:
                 log.exception('timeout in http_post')
             finally:
-                log.debug('http request', request=data, response=response_data, duration=time.time() - start_time)
+                log.debug(
+                    'http request',
+                    request=data,
+                    response=response_data,
+                    duration=time.time() - start_time,
+                )
         return {'status': 'error', 'error': c.ERR_SERVICE_UNAVAILABLE}
