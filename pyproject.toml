@@ -1,0 +1,11 @@
+[tool.black]
+skip-string-normalization = true
+target-version = ['py36']
+line-length = 79
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | ui
+)/
+'''
