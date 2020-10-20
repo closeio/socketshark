@@ -1,4 +1,4 @@
-aioresponses==0.4.2
+aioresponses==0.7.0
 flake8==3.3.0
 flake8-import-order==0.12
 mccabe==0.6.1
