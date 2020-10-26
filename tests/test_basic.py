@@ -3,13 +3,12 @@ import json
 import os
 import time
 from unittest.mock import patch
-from yarl import URL
 
 import aiohttp
 import aioredis
 from aioresponses import aioresponses
 import pytest
-
+from yarl import URL
 
 from socketshark import (config_defaults, constants as c, setup_logging,
                          SocketShark)
