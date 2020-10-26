@@ -3,11 +3,13 @@ import json
 import os
 import time
 from unittest.mock import patch
+from yarl import URL
 
 import aiohttp
 import aioredis
 from aioresponses import aioresponses
 import pytest
+
 
 from socketshark import (config_defaults, constants as c, setup_logging,
                          SocketShark)
@@ -321,7 +323,7 @@ class TestSession:
             }
 
             # Ensure we passed the right arguments to the auth endpoint.
-            requests = mock.requests[('POST', auth_url)]
+            requests = mock.requests[('POST', URL(auth_url))]
 
             invalid_request, valid_request = requests
 
@@ -729,7 +731,7 @@ class TestSession:
             }
 
             # Ensure we passed the right arguments to the authorizer endpoint.
-            requests = mock.requests[('POST', authorizer_url)]
+            requests = mock.requests[('POST', URL(authorizer_url))]
             r1, r2, r3 = requests
             assert r1.kwargs['json'] == r2.kwargs['json'] == {
                 'subscription': 'authorizer.topic',
@@ -794,7 +796,7 @@ class TestSession:
             await shark.shutdown()
 
             for endpoint in endpoints:
-                requests = mock.requests[('POST', endpoint)]
+                requests = mock.requests[('POST', URL(endpoint))]
                 assert len(requests) == 1
                 r = requests[0]
 
@@ -927,14 +929,15 @@ class TestSession:
 
             assert client.log == []
 
-            request, = mock.requests[('POST', conf['on_subscribe'])]
+            request, = mock.requests[('POST', URL(conf['on_subscribe']))]
             assert request.kwargs['json'] == {
                 'subscription': 'periodic_authorizer_with_fields.topic',
                 'session_id': 'sess_123',
                 'capabilities': 'foo',
             }
 
-            request, = mock.requests[('POST', conf['on_authorization_change'])]
+            request, = mock.requests[('POST',
+                                      URL(conf['on_authorization_change']))]
             assert request.kwargs['json'] == {
                 'subscription': 'periodic_authorizer_with_fields.topic',
                 'session_id': 'sess_123',
@@ -986,8 +989,8 @@ class TestSession:
                 'error': 'before subscribe error',
             }
 
-            req_list_1 = mock.requests[('POST', conf['authorizer'])]
-            req_list_2 = mock.requests[('POST', conf['before_subscribe'])]
+            req_list_1 = mock.requests[('POST', URL(conf['authorizer']))]
+            req_list_2 = mock.requests[('POST', URL(conf['before_subscribe']))]
             for request in req_list_1 + req_list_2:
                 assert request.kwargs['json'] == {
                     'session_id': 'sess_123',
@@ -1091,9 +1094,9 @@ class TestSession:
                 'data': {'reply': True},
             }
 
-            req_list_1 = mock.requests[('POST', conf['authorizer'])]
-            req_list_2 = mock.requests[('POST', conf['before_subscribe'])]
-            req_list_3 = mock.requests[('POST', conf['on_subscribe'])]
+            req_list_1 = mock.requests[('POST', URL(conf['authorizer']))]
+            req_list_2 = mock.requests[('POST', URL(conf['before_subscribe']))]
+            req_list_3 = mock.requests[('POST', URL(conf['on_subscribe']))]
             for request in req_list_1 + req_list_2 + req_list_3:
                 assert request.kwargs['json'] == {
                     'session_id': 'sess_123',
@@ -1101,7 +1104,7 @@ class TestSession:
                     'extra': 'hello',
                 }
 
-            msg_reqs = mock.requests[('POST', conf['on_message'])]
+            msg_reqs = mock.requests[('POST', URL(conf['on_message']))]
             assert msg_reqs[0].kwargs['json'] == {
                 'session_id': 'sess_123',
                 'subscription': 'complex.topic',
@@ -1186,8 +1189,9 @@ class TestSession:
                 'extra': 'hello',
             }
 
-            req_list_1 = mock.requests[('POST', conf['before_unsubscribe'])]
-            req_list_2 = mock.requests[('POST', conf['on_unsubscribe'])]
+            req_list_1 = mock.requests[('POST',
+                                        URL(conf['before_unsubscribe']))]
+            req_list_2 = mock.requests[('POST', URL(conf['on_unsubscribe']))]
             for request in req_list_1 + req_list_2:
                 assert request.kwargs['json'] == {
                     'session_id': 'sess_123',
@@ -1965,7 +1969,7 @@ class TestWebsocket:
             # Wait until backend learns about the disconnected WebSocket.
             await asyncio.sleep(0.1)
             mock.stop()
-            requests = mock.requests[('POST', conf['on_unsubscribe'])]
+            requests = mock.requests[('POST', URL(conf['on_unsubscribe']))]
             assert len(requests) == 1
             assert requests[0].kwargs['json'] == {
                 'subscription': 'ws_test.hello'}
@@ -2023,7 +2027,7 @@ class TestWebsocket:
         shark.start()
         mock.stop()
 
-        requests = mock.requests[('POST', conf['on_unsubscribe'])]
+        requests = mock.requests[('POST', URL(conf['on_unsubscribe']))]
         assert len(requests) == 1
         assert requests[0].kwargs['json'] == {
                 'subscription': 'ws_test.hello'}
@@ -2084,7 +2088,7 @@ class TestWebsocket:
         shark.start()
         test_task.result()  # Raise any exceptions
 
-        requests = mock.requests[('POST', conf['on_unsubscribe'])]
+        requests = mock.requests[('POST', URL(conf['on_unsubscribe']))]
         assert len(requests) == 1
         assert requests[0].kwargs['json'] == {
                 'subscription': 'ws_test.hello'}
