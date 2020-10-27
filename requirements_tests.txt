@@ -1,6 +1,6 @@
 aioresponses==0.7.0
 asynctest==0.13.0
-flake8==3.3.0
+flake8==3.8.4
 flake8-import-order==0.12
 mccabe==0.6.1
 pep8-naming==0.4.1
