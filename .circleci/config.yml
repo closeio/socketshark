@@ -4,8 +4,12 @@ workflows:
   version: 2
   workflow:
     jobs:
-      - test-3.6
-      - test-3.7
+      - test-3.6:
+          context:
+            - docker-hub-creds-ro
+      - test-3.7:
+          context:
+            - docker-hub-creds-ro
 
 defaults: &defaults
   working_directory: ~/code
@@ -30,9 +34,21 @@ jobs:
     <<: *defaults
     docker:
     - image: circleci/python:3.6
+      auth:
+        username: $DOCKER_USER
+        password: $DOCKER_PASS
     - image: redis:3.2.12-alpine
+      auth:
+        username: $DOCKER_USER
+        password: $DOCKER_PASS
   test-3.7:
     <<: *defaults
     docker:
     - image: circleci/python:3.7
+      auth:
+        username: $DOCKER_USER
+        password: $DOCKER_PASS
     - image: redis:3.2.12-alpine
+      auth:
+        username: $DOCKER_USER
+        password: $DOCKER_PASS
