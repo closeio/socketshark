@@ -6,7 +6,7 @@ chardet==3.0.3
 click==6.7
 colorama==0.3.7
 hiredis==0.2.0
-idna==2.5
+idna==2.10
 idna-ssl==1.1; python_version < '3.7'
 multidict==4.3.1
 packaging==20.4
