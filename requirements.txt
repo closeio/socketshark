@@ -9,10 +9,9 @@ hiredis==0.2.0
 idna==2.5
 idna-ssl==1.1; python_version < '3.7'
 multidict==4.3.1
-packaging==16.8
+packaging==20.4
 pyparsing==2.2.0
 six==1.10.0
 structlog==16.1.0
-urllib3==1.21.1
 websockets==6.0
 yarl==1.2.6
