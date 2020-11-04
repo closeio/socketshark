@@ -23,6 +23,9 @@ defaults: &defaults
         sudo pip install -r requirements.txt
         sudo pip install -r requirements_tests.txt
   - run:
+      name: Check dependencies
+      command: sudo pip check
+  - run:
       name: Lint
       command: flake8
   - run:
