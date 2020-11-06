@@ -12,6 +12,6 @@ multidict==4.3.1
 packaging==20.4
 pyparsing==2.2.0
 six==1.10.0
-structlog==16.1.0
+structlog==20.1.0
 websockets==6.0
 yarl==1.2.6
