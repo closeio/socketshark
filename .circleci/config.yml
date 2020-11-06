@@ -10,6 +10,9 @@ workflows:
       - test-3.7:
           context:
             - docker-hub-creds-ro
+      - test-3.8:
+          context:
+            - docker-hub-creds-ro
 
 defaults: &defaults
   working_directory: ~/code
@@ -22,9 +25,6 @@ defaults: &defaults
       command: |
         sudo pip install -r requirements.txt
         sudo pip install -r requirements_tests.txt
-  - run:
-      name: Check dependencies
-      command: sudo pip check
   - run:
       name: Lint
       command: flake8
@@ -48,6 +48,17 @@ jobs:
     <<: *defaults
     docker:
     - image: circleci/python:3.7
+      auth:
+        username: $DOCKER_USER
+        password: $DOCKER_PASS
+    - image: redis:3.2.12-alpine
+      auth:
+        username: $DOCKER_USER
+        password: $DOCKER_PASS
+  test-3.8:
+    <<: *defaults
+    docker:
+    - image: circleci/python:3.8
       auth:
         username: $DOCKER_USER
         password: $DOCKER_PASS
