@@ -114,7 +114,8 @@ class Subscription:
         if service_event in self.service_config:
             url = self.service_config[service_event]
             data = self.prepare_service_data()
-            data.update(extra_data)
+            if extra_data is not None:
+                data.update(extra_data)
             result = await http_post(self.shark, url, data)
             if raise_error and result.get('status') != 'ok':
                 raise EventError(
@@ -407,7 +408,7 @@ class Subscription:
             self.session, self.name
         )
 
-        for key, throttle in self.throttle_state.items():
+        for throttle in self.throttle_state.values():
             ts_last_msg_sent, pending_msg, task = throttle
             if task:
                 task.cancel()
@@ -444,9 +445,11 @@ class Subscription:
 
     async def force_unsubscribe(self):
         """
-        Force-unsubscribe from the subscription. Caller is responsible for
-        deleting the subscription from the session's subscriptions array.
-        This method is called when a session is disconnected.
+        Force-unsubscribes from the subscription.
+
+        Caller is responsible for deleting the subscription from the session's
+        subscriptions array. This method is called when a session is
+        disconnected.
         """
         await self.cleanup_subscription()
 

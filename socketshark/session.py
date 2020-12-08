@@ -9,7 +9,8 @@ class Session:
 
     def __init__(self, shark, client, info=None):
         """
-        Initialize a session with
+        Initialize a session.
+
         - `shark`: a SocketShark instance,
         - `client`: a Websocket-backend-specific client object which implements
                     an async send() method that takes a JSON dict, and
@@ -23,6 +24,8 @@ class Session:
         self.client = client
         self.log = self.shark.log.bind(session=id(self))
         self.trace_log = self.shark.trace_log.bind(session=id(self))
+        if info is None:
+            info = {}
         self.log.debug('new session', **info)
         self.subscriptions = {}  # dict of Subscription objects by name
         self.active = True
@@ -32,6 +35,7 @@ class Session:
     async def on_client_event(self, data):
         """
         Called by the WebSocket backend when a new client messages comes in.
+
         Expects a JSON dict.
         """
         if not self.active:
@@ -59,8 +63,10 @@ class Session:
 
     async def on_service_event(self, data):
         """
-        Called by the ServiceReceiver with a JSON dict on messages published by
-        a service.
+        Callback called by the ServiceReceiver.
+
+        Args:
+            data: a JSON dict on messages published by a service.
         """
         # Don't attempt to process messages to closed connections.
         if not self.active:
