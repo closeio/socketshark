@@ -6,15 +6,15 @@ from unittest.mock import patch
 
 import aiohttp
 import aioredis
-from aioresponses import aioresponses
 import pytest
+from aioresponses import aioresponses
 from yarl import URL
 
 from socketshark import (
+    SocketShark,
     config_defaults,
     constants as c,
     setup_logging,
-    SocketShark,
 )
 from socketshark.session import Session
 

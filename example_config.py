@@ -2,6 +2,7 @@
 # For more settings, see socketshark/config_defaults.py
 
 # Host and port to bind WebSockets.
+
 WS_HOST = '127.0.0.1'
 WS_PORT = '9000'
 

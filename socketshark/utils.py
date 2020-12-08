@@ -5,7 +5,6 @@ from urllib.parse import urlsplit, urlunsplit
 
 import aiohttp
 
-
 from . import constants as c
 
 
