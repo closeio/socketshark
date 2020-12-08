@@ -95,10 +95,12 @@ class SocketShark:
         """
         Called by the backend to notify that the backend is ready.
         """
-        self.log.info('🦈  ready',
-                      host=self.config['WS_HOST'],
-                      port=self.config['WS_PORT'],
-                      secure=bool(self.config.get('WS_SSL')))
+        self.log.info(
+            '🦈  ready',
+            host=self.config['WS_HOST'],
+            port=self.config['WS_PORT'],
+            secure=bool(self.config.get('WS_SSL')),
+        )
         self.metrics.set_ready(True)
 
     def signal_shutdown(self):
@@ -128,7 +130,8 @@ class SocketShark:
         try:
             self.redis = await aioredis.create_redis(
                 (redis_settings['host'], redis_settings['port']),
-                db=redis_settings.get('db', 0))
+                db=redis_settings.get('db', 0),
+            )
         except (OSError, aioredis.RedisError):
             self.log.exception('could not connect to redis')
             raise
@@ -143,7 +146,8 @@ class SocketShark:
             raise Exception(msg)
 
         self._redis_connection_handler_task = asyncio.ensure_future(
-                self._redis_connection_handler())
+            self._redis_connection_handler()
+        )
 
         self.service_receiver = ServiceReceiver(self, redis_receiver)
 
@@ -175,8 +179,9 @@ class SocketShark:
 
         # Wait for all sessions to close
         while self.sessions:
-            self.log.info('waiting for sessions to close',
-                          n_sessions=len(self.sessions))
+            self.log.info(
+                'waiting for sessions to close', n_sessions=len(self.sessions)
+            )
             await asyncio.sleep(1)
 
         await self.service_receiver.stop()
@@ -215,6 +220,7 @@ class SocketShark:
         """
         Sets up signal handlers for safely stopping the worker.
         """
+
         def request_stop():
             self.log.info('stop requested')
             asyncio.ensure_future(self.shutdown())
@@ -235,8 +241,9 @@ class SocketShark:
         ssl_settings = self.config.get('WS_SSL')
         if ssl_settings:
             ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-            ssl_context.load_cert_chain(certfile=ssl_settings['cert'],
-                                        keyfile=ssl_settings['key'])
+            ssl_context.load_cert_chain(
+                certfile=ssl_settings['cert'], keyfile=ssl_settings['key']
+            )
             return ssl_context
 
 

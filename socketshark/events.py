@@ -37,11 +37,7 @@ class Event:
         self.shark = session.shark
 
     async def send_error(self, error, data=None, extra_data={}):
-        msg = {
-            'event': self.event,
-            'status': 'error',
-            'error': error
-        }
+        msg = {'event': self.event, 'status': 'error', 'error': error}
         msg.update(self.extra_data)
         if data is not None:
             msg['data'] = data
@@ -133,14 +129,25 @@ class SubscriptionEvent(Event):
         self.extra_data = self.subscription.extra_data
 
     async def send_error(self, error, data=None):
-        await super().send_error(error, data=data, extra_data={
-            'subscription': self.subscription_name,
-        } if self.subscription_name else {})
+        await super().send_error(
+            error,
+            data=data,
+            extra_data={
+                'subscription': self.subscription_name,
+            }
+            if self.subscription_name
+            else {},
+        )
 
     async def send_ok(self, data=None):
-        await super().send_ok(data=data, extra_data={
-            'subscription': self.subscription_name,
-        } if self.subscription_name else {})
+        await super().send_ok(
+            data=data,
+            extra_data={
+                'subscription': self.subscription_name,
+            }
+            if self.subscription_name
+            else {},
+        )
 
     async def process(self):
         self.subscription.validate()

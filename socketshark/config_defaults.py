@@ -9,10 +9,8 @@ LOG = {
     'level': 'INFO',  # Set to None to disable logging setup
     'format': '%(message)s',
     'logger_name': 'socketshark',
-
     # Trace loggers are prefixed with the value below (separated by dot).
     'trace_logger_prefix': 'trace',
-
     # Set to 'DEBUG' to enable trace logger, or 'INFO' or higher to disable.
     'trace_level': 'INFO',
 }
@@ -23,7 +21,6 @@ METRICS = {
     #     'host': '',
     #     'port': None,
     # },
-
     # Log all metrics
     # 'log': {},
 }
@@ -39,7 +36,6 @@ WS_SSL = {
 WS_PING = {
     # How often to ping WebSocket connections in seconds (None to not ping).
     'interval': 15,
-
     # Seconds after which we disconnect clients with no ping response.
     'timeout': 15,
 }
@@ -61,10 +57,8 @@ REDIS = {
     'host': 'localhost',
     'port': 6379,
     'channel_prefix': '',
-
     # How often to ping Redis in seconds (None to not ping).
     'ping_interval': 10,
-
     # Seconds after which we shut down after no ping response.
     'ping_timeout': 5,
 }
