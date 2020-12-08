@@ -25,9 +25,10 @@ defaults: &defaults
       command: |
         sudo pip install -r requirements.txt
         sudo pip install -r requirements_tests.txt
+        sudo pip install -r requirements_lint.txt
   - run:
-      name: Lint
-      command: flake8
+      name: LintLizard
+      command: lintlizard
   - run:
       name: Test
       command: PYTHONPATH=. pytest
