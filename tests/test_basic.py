@@ -839,7 +839,6 @@ class TestSession:
         """
         Test authorizer fields & data.
         """
-
         shark = SocketShark(TEST_CONFIG)
         await shark.prepare()
         client = MockClient(shark)
@@ -991,6 +990,8 @@ class TestSession:
     @pytest.mark.asyncio
     async def test_subscription_authorizer_data_periodic(self):
         """
+        Test authorization change callback.
+
         Test authorization change callback is called when authorizer fields
         change during periodic authorization.
         """
@@ -1414,6 +1415,8 @@ class TestSession:
     @pytest.mark.asyncio
     async def test_unsubscribe_on_close(self):
         """
+        Test throttled messages after closing connection.
+
         Ensure there are no issues after closing the connection when there are
         scheduled throttled messages.
         """
@@ -2110,8 +2113,7 @@ class TestThrottle:
     @pytest.mark.parametrize('throttle,wait', [(0.8, 0.4), (0.4, 0.8)])
     async def test_throttle_slow_send(self, throttle, wait):
         """
-        Ensure throttling behaves properly when sending messages is delayed
-        (by the given wait).
+        Ensure throttling behaves properly when sending messages is delayed.
         """
         shark = SocketShark(TEST_CONFIG)
         await shark.prepare()
@@ -2413,7 +2415,7 @@ class TestWebsocket:
             # Attempt a new connection.
             with pytest.raises(aiohttp.ClientConnectionError):
                 async with aiosession.ws_connect(self.ws_url) as ws:
-                    assert False  # Whoops!
+                    raise AssertionError  # Whoops!
 
             await aiosession.close()
 
@@ -2468,6 +2470,8 @@ class TestWebsocket:
 
     def test_ping_2(self):
         """
+        Test message receiving after a fail.
+
         Ensure we can receive service messages when sending a message fails due
         a timed out WebSocket.
         """
