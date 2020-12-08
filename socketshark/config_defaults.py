@@ -1,3 +1,5 @@
+from typing import Any, Dict
+
 # Default settings that can be overridden.
 
 # Which WebSocket backend to use. Currently only "websockets" is supported.
@@ -16,7 +18,7 @@ LOG = {
     'trace_level': 'INFO',
 }
 
-METRICS = {
+METRICS: Dict[str, Any] = {
     # Set a port to enable Prometheus integration
     # 'prometheus': {
     #     'host': '',
@@ -29,7 +31,7 @@ METRICS = {
 # Host and port to bind WebSockets.
 WS_HOST = '127.0.0.1'
 WS_PORT = '9000'
-WS_SSL = {
+WS_SSL: Dict[str, str] = {
     # 'cert': '/path/to/ssl.crt',
     # 'key': '/path/to/ssl.key',
 }
@@ -65,7 +67,7 @@ REDIS = {
 }
 
 # Authentication
-AUTHENTICATION = {}
+AUTHENTICATION: Dict[str, Any] = {}
 
 # List of services
-SERVICES = {}
+SERVICES: Dict[str, Any] = {}
