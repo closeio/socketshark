@@ -1610,6 +1610,30 @@ class TestSession:
 
         await shark.shutdown()
 
+    @pytest.mark.asyncio
+    async def test_ping_pong(self):
+        shark = SocketShark(TEST_CONFIG)
+        client = MockClient(shark)
+        session = client.session
+
+        await session.on_client_event({'event': 'ping'})
+        assert client.log.pop() == {
+            'event': 'pong',
+            'data': None,
+        }
+
+        await session.on_client_event({'event': 'ping', 'data': 123})
+        assert client.log.pop() == {
+            'event': 'pong',
+            'data': None,
+        }
+
+        await session.on_client_event({'event': 'ping', 'data': 'hello'})
+        assert client.log.pop() == {
+            'event': 'pong',
+            'data': 'hello',
+        }
+
 
 class TestThrottle:
     """

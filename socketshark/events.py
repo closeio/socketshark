@@ -21,6 +21,7 @@ class Event:
             'message': MessageEvent,
             'subscribe': SubscribeEvent,
             'unsubscribe': UnsubscribeEvent,
+            'ping': PingEvent,
         }.get(event)
 
         if cls:
@@ -165,4 +166,22 @@ class UnsubscribeEvent(SubscriptionEvent):
     async def process(self):
         await super().process()
         await self.subscription.unsubscribe(self)
+        return True
+
+
+class PingEvent(Event):
+    async def send_pong(self, data=None):
+        msg = {
+            'event': 'pong',
+            'data': data
+        }
+        await self.session.send(msg)
+
+    async def process(self):
+        raw_data = self.data.get('data')
+        if isinstance(raw_data, str):
+            data = raw_data[:128]
+        else:
+            data = None
+        await self.send_pong(data)
         return True
