@@ -111,7 +111,7 @@ supports the following events:
 - ``subscribe``: Subscribe to a topic
 - ``message``: Send a message to a topic
 - ``unsubscribe``: Unsubscribe from a topic
-- ``ping``: Maintain and monitor connectivity
+- ``ping``: Monitor connectivity
 
 Responses usually contain a ``status`` field which can be ``ok`` or ``error``.
 In case of an error, an ``error`` field is supplied containing the error
