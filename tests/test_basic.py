@@ -1610,6 +1610,32 @@ class TestSession:
 
         await shark.shutdown()
 
+    @pytest.mark.asyncio
+    async def test_ping_pong(self):
+        """
+        Test receiving a "ping" from the client and responding with a "pong".
+        """
+        shark = SocketShark(TEST_CONFIG)
+        client = MockClient(shark)
+        session = client.session
+
+        message_from_client = {'event': 'ping'}
+        await session.on_client_event(message_from_client)
+        message_from_server = client.log.pop()
+        assert message_from_server == {'event': 'pong', 'data': None}
+
+        # Only a string payload is sent back to the client. Other data types
+        # (e.g. int) should be ignored.
+        message_from_client = {'event': 'ping', 'data': 123}
+        await session.on_client_event(message_from_client)
+        message_from_server = client.log.pop()
+        assert message_from_server == {'event': 'pong', 'data': None}
+
+        message_from_client = {'event': 'ping', 'data': 'hello'}
+        await session.on_client_event(message_from_client)
+        message_from_server = client.log.pop()
+        assert message_from_server == {'event': 'pong', 'data': 'hello'}
+
 
 class TestThrottle:
     """
