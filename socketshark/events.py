@@ -179,9 +179,14 @@ class PingEvent(Event):
 
     async def process(self):
         raw_data = self.data.get('data')
+
+        # If the "ping" event included some "data", send the same data back
+        # so that pings and their pongs can be tied together. However, only
+        # accept string data and only up to 128 characters.
         if isinstance(raw_data, str):
             data = raw_data[:128]
         else:
             data = None
+
         await self.send_pong(data)
         return True
