@@ -77,6 +77,12 @@ Features
   successfully or unsuccessfully executed commands, with built-in Prometheus
   and logging backends.
 
+- Connection maintenance
+
+  SocketShark supports keeping the WebSocket connection alive and automatic
+  discovery of its closure through automated server-side pings and handlers
+  for client-side pings.
+
 .. _websockets: https://websockets.readthedocs.io/
 
 Quick start
@@ -105,6 +111,7 @@ supports the following events:
 - ``subscribe``: Subscribe to a topic
 - ``message``: Send a message to a topic
 - ``unsubscribe``: Unsubscribe from a topic
+- ``ping``: Maintain and monitor connectivity
 
 Responses usually contain a ``status`` field which can be ``ok`` or ``error``.
 In case of an error, an ``error`` field is supplied containing the error
@@ -295,6 +302,28 @@ Example server responses (successful and unsuccessful):
     "status": "error",
     "error": "Subscription does not exist."
   }
+
+Ping
+~~~~
+
+Clients can send a ``ping`` message and Socketshark will send a ``pong`` back
+immediately, without contacting any services. Clients may choose to send pings
+and monitor for pongs to e.g. detect failed WebSocket connections, display
+latency metrics, etc. Furthermore, the ping message may contain some ``data``,
+which the pong message should repeat back.
+
+Example client request:
+
+.. code:: json
+
+  {"event": "ping", "data": "foobar"}
+
+Example server response:
+
+.. code:: json
+
+  {"event": "pong", "data": "foobar"}
+
 
 Service Protocol
 ================
