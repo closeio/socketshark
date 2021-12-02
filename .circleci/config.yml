@@ -31,9 +31,6 @@ defaults: &defaults
         sudo pip install -r requirements.txt
         sudo pip install -r requirements_tests.txt
   - run:
-      name: Lint
-      command: flake8
-  - run:
       name: Test
       command: PYTHONPATH=. pytest
 
@@ -94,21 +91,12 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Exit early if not running tests
+          name: Install dependencies
           command: |
-            if [ "$(git log -1 --pretty=%B | head -n 1 | grep '#notests')" ]; then
-              circleci-agent step halt
-            fi
-
-      - run:
-          name: Prepare Environment
-          command: |
-            # Pip doesn't like urls and packages with modifiers as constraints,
-            # so we filter them out
             pip install -r requirements_prometheus.txt -r requirements_tests.txt -r requirements.txt
 
       - run:
-          name: lintlizard
+          name: Lint
           when: always
           command: |
             lintlizard
