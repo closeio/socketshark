@@ -10,8 +10,12 @@ from aioresponses import aioresponses
 import pytest
 from yarl import URL
 
-from socketshark import (config_defaults, constants as c, setup_logging,
-                         SocketShark)
+from socketshark import (
+    config_defaults,
+    constants as c,
+    setup_logging,
+    SocketShark,
+)
 from socketshark.session import Session
 
 LOCAL_REDIS_HOST = os.environ.get('LOCAL_REDIS_HOST')
@@ -49,7 +53,7 @@ TEST_CONFIG = {
         'simple': {
             'require_authentication': False,
             'filter_fields': ['session_id', 'extra'],
-            'extra_fields': ['extra']
+            'extra_fields': ['extra'],
         },
         'simple_auth': {
             'require_authentication': True,
@@ -102,9 +106,11 @@ class aioresponses_delayed(aioresponses):  # noqa
     """
     Just like aioresponses, but slightly delays POST requests.
     """
+
     async def _request_mock(self, orig_self, method, url, *args, **kwargs):
-        result = await super()._request_mock(orig_self, method, url, *args,
-                                             **kwargs)
+        result = await super()._request_mock(
+            orig_self, method, url, *args, **kwargs
+        )
         if method == 'POST':
             await asyncio.sleep(0.2)
         return result
@@ -134,21 +140,27 @@ class TestSession:
     """
     Main test cases involving the Session class.
     """
+
     async def _auth_session(self, session):
         with aioresponses() as mock:
             # Mock auth endpoint
             auth_url = 'http://auth-service/auth/ticket/'
 
-            mock.post(auth_url, payload={
-                'status': 'ok',
-                'session_id': 'sess_123',
-            })
+            mock.post(
+                auth_url,
+                payload={
+                    'status': 'ok',
+                    'session_id': 'sess_123',
+                },
+            )
 
-            await session.on_client_event({
-                'event': 'auth',
-                'method': 'ticket',
-                'ticket': 'valid_ticket',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'auth',
+                    'method': 'ticket',
+                    'ticket': 'valid_ticket',
+                }
+            )
             assert session.client.log.pop() == {
                 'status': 'ok',
                 'event': 'auth',
@@ -262,11 +274,13 @@ class TestSession:
 
         with aioresponses() as mock:
             # Auth endpoint unreachable
-            await session.on_client_event({
-                'event': 'auth',
-                'method': 'ticket',
-                'ticket': 'the_ticket',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'auth',
+                    'method': 'ticket',
+                    'ticket': 'the_ticket',
+                }
+            )
             assert client.log.pop() == {
                 'status': 'error',
                 'event': 'auth',
@@ -278,27 +292,33 @@ class TestSession:
             auth_url = 'http://auth-service/auth/ticket/'
 
             # First request fails, second one succeeds.
-            mock.post(auth_url, payload={
-                'status': 'error',
+            mock.post(
+                auth_url,
+                payload={
+                    'status': 'error',
+                    # these should be ignored
+                    'session_id': 'sess_invalid',
+                    'foo': 'bar',
+                },
+            )
 
-                # these should be ignored
-                'session_id': 'sess_invalid',
-                'foo': 'bar',
-            })
+            mock.post(
+                auth_url,
+                payload={
+                    'status': 'ok',
+                    'session_id': 'sess_123',
+                    # this should be ignored
+                    'foo': 'bar',
+                },
+            )
 
-            mock.post(auth_url, payload={
-                'status': 'ok',
-                'session_id': 'sess_123',
-
-                # this should be ignored
-                'foo': 'bar',
-            })
-
-            await session.on_client_event({
-                'event': 'auth',
-                'method': 'ticket',
-                'ticket': 'invalid_ticket',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'auth',
+                    'method': 'ticket',
+                    'ticket': 'invalid_ticket',
+                }
+            )
             assert client.log.pop() == {
                 'status': 'error',
                 'event': 'auth',
@@ -307,11 +327,13 @@ class TestSession:
 
             assert session.auth_info == {}
 
-            await session.on_client_event({
-                'event': 'auth',
-                'method': 'ticket',
-                'ticket': 'valid_ticket',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'auth',
+                    'method': 'ticket',
+                    'ticket': 'valid_ticket',
+                }
+            )
             assert client.log.pop() == {
                 'status': 'ok',
                 'event': 'auth',
@@ -345,19 +367,20 @@ class TestSession:
         client = MockClient(shark)
         session = client.session
 
-        await session.on_client_event({
-            'event': 'subscribe',
-        })
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+            }
+        )
         assert client.log.pop() == {
             'event': 'subscribe',
             'status': 'error',
             'error': c.ERR_INVALID_SUBSCRIPTION_FORMAT,
         }
 
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': 'invalid'
-        })
+        await session.on_client_event(
+            {'event': 'subscribe', 'subscription': 'invalid'}
+        )
         assert client.log.pop() == {
             'event': 'subscribe',
             'subscription': 'invalid',
@@ -365,10 +388,9 @@ class TestSession:
             'error': c.ERR_INVALID_SUBSCRIPTION_FORMAT,
         }
 
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': 'invalid.topic'
-        })
+        await session.on_client_event(
+            {'event': 'subscribe', 'subscription': 'invalid.topic'}
+        )
         assert client.log.pop() == {
             'event': 'subscribe',
             'subscription': 'invalid.topic',
@@ -387,10 +409,12 @@ class TestSession:
         client = MockClient(shark)
         session = client.session
 
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': 'empty.topic',
-        })
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': 'empty.topic',
+            }
+        )
         assert client.log.pop() == {
             'event': 'subscribe',
             'subscription': 'empty.topic',
@@ -407,20 +431,24 @@ class TestSession:
         client = MockClient(shark)
         session = client.session
 
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': 'simple.topic',
-        })
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': 'simple.topic',
+            }
+        )
         assert client.log.pop() == {
             'event': 'subscribe',
             'subscription': 'simple.topic',
             'status': 'ok',
         }
 
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': 'simple.topic',
-        })
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': 'simple.topic',
+            }
+        )
         assert client.log.pop() == {
             'event': 'subscribe',
             'subscription': 'simple.topic',
@@ -428,11 +456,13 @@ class TestSession:
             'error': c.ERR_ALREADY_SUBSCRIBED,
         }
 
-        await session.on_client_event({
-            'event': 'message',
-            'subscription': 'simple.invalid',
-            'data': {'foo': 'bar'},
-        })
+        await session.on_client_event(
+            {
+                'event': 'message',
+                'subscription': 'simple.invalid',
+                'data': {'foo': 'bar'},
+            }
+        )
         assert client.log.pop() == {
             'status': 'error',
             'subscription': 'simple.invalid',
@@ -440,10 +470,12 @@ class TestSession:
             'error': c.ERR_SUBSCRIPTION_NOT_FOUND,
         }
 
-        await session.on_client_event({
-            'event': 'unsubscribe',
-            'subscription': 'simple.invalid',
-        })
+        await session.on_client_event(
+            {
+                'event': 'unsubscribe',
+                'subscription': 'simple.invalid',
+            }
+        )
         assert client.log.pop() == {
             'event': 'unsubscribe',
             'subscription': 'simple.invalid',
@@ -466,10 +498,12 @@ class TestSession:
         client = MockClient(shark)
         session = client.session
 
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': 'simple.topic',
-        })
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': 'simple.topic',
+            }
+        )
         assert client.log.pop() == {
             'event': 'subscribe',
             'subscription': 'simple.topic',
@@ -484,46 +518,58 @@ class TestSession:
         assert sessions == set([session])
 
         # Test message from client to server
-        await session.on_client_event({
-            'event': 'message',
-            'subscription': 'simple.topic',
-            'data': {'foo': 'bar'},
-        })
+        await session.on_client_event(
+            {
+                'event': 'message',
+                'subscription': 'simple.topic',
+                'data': {'foo': 'bar'},
+            }
+        )
 
         # Test message from server to client
         redis_settings = TEST_CONFIG['REDIS']
-        redis = await aioredis.create_redis((
-            redis_settings['host'], redis_settings['port']))
+        redis = await aioredis.create_redis(
+            (redis_settings['host'], redis_settings['port'])
+        )
         redis_topic = redis_settings['channel_prefix'] + 'simple.topic'
 
         # This message has no filters and will arrive.
-        await redis.publish_json(redis_topic, {
-            'subscription': 'simple.topic',
-            'data': {'baz': 'foo'}
-        })
+        await redis.publish_json(
+            redis_topic,
+            {'subscription': 'simple.topic', 'data': {'baz': 'foo'}},
+        )
 
         # This message has an invalid subscription.
-        await redis.publish_json(redis_topic, {
-            'subscription': 'simple.othertopic',
-            'data': {'never': 'arrives'}
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': 'simple.othertopic',
+                'data': {'never': 'arrives'},
+            },
+        )
 
         # This message has incorrect JSON
         await redis.publish(redis_topic, '{')
 
         # This message will arrive on anonymous sessions only.
-        await redis.publish_json(redis_topic, {
-            'subscription': 'simple.topic',
-            'session_id': None,
-            'data': {'arrives': True},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': 'simple.topic',
+                'session_id': None,
+                'data': {'arrives': True},
+            },
+        )
 
         # This message will not arrive on sessions with a session_id.
-        await redis.publish_json(redis_topic, {
-            'subscription': 'simple.topic',
-            'session_id': 'sess_123',
-            'data': {'arrives': False},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': 'simple.topic',
+                'session_id': 'sess_123',
+                'data': {'arrives': False},
+            },
+        )
 
         redis.close()
 
@@ -533,22 +579,27 @@ class TestSession:
         has_messages = await shark.run_service_receiver(once=True)
         assert has_messages
 
-        assert client.log == [{
-            'event': 'message',
-            'subscription': 'simple.topic',
-            'data': {'baz': 'foo'},
-        }, {
-            'event': 'message',
-            'subscription': 'simple.topic',
-            'data': {'arrives': True},
-        }]
+        assert client.log == [
+            {
+                'event': 'message',
+                'subscription': 'simple.topic',
+                'data': {'baz': 'foo'},
+            },
+            {
+                'event': 'message',
+                'subscription': 'simple.topic',
+                'data': {'arrives': True},
+            },
+        ]
 
         client.log = []
 
-        await session.on_client_event({
-            'event': 'unsubscribe',
-            'subscription': 'simple.topic',
-        })
+        await session.on_client_event(
+            {
+                'event': 'unsubscribe',
+                'subscription': 'simple.topic',
+            }
+        )
         assert client.log.pop() == {
             'event': 'unsubscribe',
             'subscription': 'simple.topic',
@@ -575,10 +626,12 @@ class TestSession:
         client = MockClient(shark)
         session = client.session
 
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': 'simple_auth.topic',
-        })
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': 'simple_auth.topic',
+            }
+        )
         assert client.log.pop() == {
             'event': 'subscribe',
             'subscription': 'simple_auth.topic',
@@ -588,10 +641,12 @@ class TestSession:
 
         await self._auth_session(session)
 
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': 'simple_auth.topic',
-        })
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': 'simple_auth.topic',
+            }
+        )
         assert client.log.pop() == {
             'event': 'subscribe',
             'subscription': 'simple_auth.topic',
@@ -600,29 +655,36 @@ class TestSession:
 
         # Test message from server to client
         redis_settings = TEST_CONFIG['REDIS']
-        redis = await aioredis.create_redis((
-            redis_settings['host'], redis_settings['port']))
+        redis = await aioredis.create_redis(
+            (redis_settings['host'], redis_settings['port'])
+        )
         redis_topic = redis_settings['channel_prefix'] + 'simple_auth.topic'
 
         # This message has no filters and will arrive.
-        await redis.publish_json(redis_topic, {
-            'subscription': 'simple_auth.topic',
-            'data': {'foo': 'bar'}
-        })
+        await redis.publish_json(
+            redis_topic,
+            {'subscription': 'simple_auth.topic', 'data': {'foo': 'bar'}},
+        )
 
         # This message will arrive on an invalid session only.
-        await redis.publish_json(redis_topic, {
-            'subscription': 'simple_auth.topic',
-            'session_id': 'sess_invalid',
-            'data': {'arrives': False},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': 'simple_auth.topic',
+                'session_id': 'sess_invalid',
+                'data': {'arrives': False},
+            },
+        )
 
         # This message will arrive in the current session.
-        await redis.publish_json(redis_topic, {
-            'subscription': 'simple_auth.topic',
-            'session_id': 'sess_123',
-            'data': {'arrives': True},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': 'simple_auth.topic',
+                'session_id': 'sess_123',
+                'data': {'arrives': True},
+            },
+        )
 
         redis.close()
 
@@ -632,15 +694,18 @@ class TestSession:
         has_messages = await shark.run_service_receiver(once=True)
         assert has_messages
 
-        assert client.log == [{
-            'event': 'message',
-            'subscription': 'simple_auth.topic',
-            'data': {'foo': 'bar'},
-        }, {
-            'event': 'message',
-            'subscription': 'simple_auth.topic',
-            'data': {'arrives': True},
-        }]
+        assert client.log == [
+            {
+                'event': 'message',
+                'subscription': 'simple_auth.topic',
+                'data': {'foo': 'bar'},
+            },
+            {
+                'event': 'message',
+                'subscription': 'simple_auth.topic',
+                'data': {'arrives': True},
+            },
+        ]
 
         await shark.shutdown()
 
@@ -651,10 +716,12 @@ class TestSession:
         client = MockClient(shark)
         session = client.session
 
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': 'authorizer.topic',
-        })
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': 'authorizer.topic',
+            }
+        )
         assert client.log.pop() == {
             'event': 'subscribe',
             'subscription': 'authorizer.topic',
@@ -666,10 +733,12 @@ class TestSession:
 
         with aioresponses() as mock:
             # Authorizer is unavailable.
-            await session.on_client_event({
-                'event': 'subscribe',
-                'subscription': 'authorizer.topic',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': 'authorizer.topic',
+                }
+            )
             assert client.log.pop() == {
                 'event': 'subscribe',
                 'subscription': 'authorizer.topic',
@@ -681,23 +750,34 @@ class TestSession:
             # Mock authorizer
             authorizer_url = 'http://auth-service/auth/authorizer/'
 
-            mock.post(authorizer_url, payload={
-                'status': 'error',
-            })
+            mock.post(
+                authorizer_url,
+                payload={
+                    'status': 'error',
+                },
+            )
 
-            mock.post(authorizer_url, payload={
-                'status': 'error',
-                'error': 'test error',
-            })
+            mock.post(
+                authorizer_url,
+                payload={
+                    'status': 'error',
+                    'error': 'test error',
+                },
+            )
 
-            mock.post(authorizer_url, payload={
-                'status': 'ok',
-            })
+            mock.post(
+                authorizer_url,
+                payload={
+                    'status': 'ok',
+                },
+            )
 
-            await session.on_client_event({
-                'event': 'subscribe',
-                'subscription': 'authorizer.topic',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': 'authorizer.topic',
+                }
+            )
             assert client.log.pop() == {
                 'event': 'subscribe',
                 'subscription': 'authorizer.topic',
@@ -705,10 +785,12 @@ class TestSession:
                 'error': c.ERR_UNAUTHORIZED,
             }
 
-            await session.on_client_event({
-                'event': 'subscribe',
-                'subscription': 'authorizer.topic',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': 'authorizer.topic',
+                }
+            )
             assert client.log.pop() == {
                 'event': 'subscribe',
                 'subscription': 'authorizer.topic',
@@ -716,12 +798,14 @@ class TestSession:
                 'error': 'test error',
             }
 
-            await session.on_client_event({
-                'event': 'subscribe',
-                'subscription': 'authorizer.topic',
-                'extra': 'foo',
-                'other': 'bar',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': 'authorizer.topic',
+                    'extra': 'foo',
+                    'other': 'bar',
+                }
+            )
             assert client.log.pop() == {
                 'event': 'subscribe',
                 'subscription': 'authorizer.topic',
@@ -732,10 +816,14 @@ class TestSession:
             # Ensure we passed the right arguments to the authorizer endpoint.
             requests = mock.requests[('POST', URL(authorizer_url))]
             r1, r2, r3 = requests
-            assert r1.kwargs['json'] == r2.kwargs['json'] == {
-                'subscription': 'authorizer.topic',
-                'session_id': 'sess_123',
-            }
+            assert (
+                r1.kwargs['json']
+                == r2.kwargs['json']
+                == {
+                    'subscription': 'authorizer.topic',
+                    'session_id': 'sess_123',
+                }
+            )
             assert r3.kwargs['json'] == {
                 'subscription': 'authorizer.topic',
                 'session_id': 'sess_123',
@@ -763,11 +851,14 @@ class TestSession:
 
         with aioresponses() as mock:
             # Mock authorizer
-            mock.post(conf['authorizer'], payload={
-                'status': 'ok',
-                'capabilities': 'foo',
-                'plan_type': 'bar',
-            })
+            mock.post(
+                conf['authorizer'],
+                payload={
+                    'status': 'ok',
+                    'capabilities': 'foo',
+                    'plan_type': 'bar',
+                },
+            )
 
             endpoints = (
                 conf['before_subscribe'],
@@ -779,10 +870,12 @@ class TestSession:
             for endpoint in endpoints:
                 mock.post(endpoint, payload={'status': 'ok'})
 
-            await session.on_client_event({
-                'event': 'subscribe',
-                'subscription': 'complex.topic',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': 'complex.topic',
+                }
+            )
 
             assert client.log.pop() == {
                 'event': 'subscribe',
@@ -818,27 +911,41 @@ class TestSession:
             # Mock authorizer
             authorizer_url = 'http://auth-service/auth/authorizer/'
 
-            mock.post(authorizer_url, payload={
-                'status': 'ok',
-            })
+            mock.post(
+                authorizer_url,
+                payload={
+                    'status': 'ok',
+                },
+            )
 
-            mock.post(authorizer_url, payload={
-                'status': 'ok',
-            })
+            mock.post(
+                authorizer_url,
+                payload={
+                    'status': 'ok',
+                },
+            )
 
-            mock.post(authorizer_url, payload={
-                'status': 'error',
-            })
+            mock.post(
+                authorizer_url,
+                payload={
+                    'status': 'error',
+                },
+            )
 
-            mock.post(authorizer_url, payload={
-                'status': 'error',
-                'error': 'no longer authorized',
-            })
+            mock.post(
+                authorizer_url,
+                payload={
+                    'status': 'error',
+                    'error': 'no longer authorized',
+                },
+            )
 
-            await session.on_client_event({
-                'event': 'subscribe',
-                'subscription': 'periodic_authorizer.topic',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': 'periodic_authorizer.topic',
+                }
+            )
 
             assert client.log.pop() == {
                 'event': 'subscribe',
@@ -846,10 +953,12 @@ class TestSession:
                 'status': 'ok',
             }
 
-            await session.on_client_event({
-                'event': 'subscribe',
-                'subscription': 'periodic_authorizer.topic2',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': 'periodic_authorizer.topic2',
+                }
+            )
 
             assert client.log.pop() == {
                 'event': 'subscribe',
@@ -896,27 +1005,41 @@ class TestSession:
 
         with aioresponses() as mock:
             # Mock authorizer
-            mock.post(conf['authorizer'], payload={
-                'status': 'ok',
-                'capabilities': 'foo',
-            })
+            mock.post(
+                conf['authorizer'],
+                payload={
+                    'status': 'ok',
+                    'capabilities': 'foo',
+                },
+            )
 
-            mock.post(conf['authorizer'], payload={
-                'status': 'ok',
-                'capabilities': 'bar',
-            })
+            mock.post(
+                conf['authorizer'],
+                payload={
+                    'status': 'ok',
+                    'capabilities': 'bar',
+                },
+            )
 
-            mock.post(conf['on_subscribe'], payload={
-                'status': 'ok',
-            })
-            mock.post(conf['on_authorization_change'], payload={
-                'status': 'ok',
-            })
+            mock.post(
+                conf['on_subscribe'],
+                payload={
+                    'status': 'ok',
+                },
+            )
+            mock.post(
+                conf['on_authorization_change'],
+                payload={
+                    'status': 'ok',
+                },
+            )
 
-            await session.on_client_event({
-                'event': 'subscribe',
-                'subscription': 'periodic_authorizer_with_fields.topic',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': 'periodic_authorizer_with_fields.topic',
+                }
+            )
 
             assert client.log.pop() == {
                 'event': 'subscribe',
@@ -928,15 +1051,16 @@ class TestSession:
 
             assert client.log == []
 
-            request, = mock.requests[('POST', URL(conf['on_subscribe']))]
+            (request,) = mock.requests[('POST', URL(conf['on_subscribe']))]
             assert request.kwargs['json'] == {
                 'subscription': 'periodic_authorizer_with_fields.topic',
                 'session_id': 'sess_123',
                 'capabilities': 'foo',
             }
 
-            request, = mock.requests[('POST',
-                                      URL(conf['on_authorization_change']))]
+            (request,) = mock.requests[
+                ('POST', URL(conf['on_authorization_change']))
+            ]
             assert request.kwargs['json'] == {
                 'subscription': 'periodic_authorizer_with_fields.topic',
                 'session_id': 'sess_123',
@@ -960,10 +1084,12 @@ class TestSession:
             mock.post(conf['authorizer'], payload={'status': 'ok'})
             mock.post(conf['before_subscribe'], payload={'status': 'error'})
 
-            await session.on_client_event({
-                'event': 'subscribe',
-                'subscription': 'complex.topic',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': 'complex.topic',
+                }
+            )
             assert client.log.pop() == {
                 'event': 'subscribe',
                 'subscription': 'complex.topic',
@@ -972,15 +1098,20 @@ class TestSession:
             }
 
             mock.post(conf['authorizer'], payload={'status': 'ok'})
-            mock.post(conf['before_subscribe'], payload={
-                'status': 'error',
-                'error': 'before subscribe error',
-            })
+            mock.post(
+                conf['before_subscribe'],
+                payload={
+                    'status': 'error',
+                    'error': 'before subscribe error',
+                },
+            )
 
-            await session.on_client_event({
-                'event': 'subscribe',
-                'subscription': 'complex.topic',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': 'complex.topic',
+                }
+            )
             assert client.log.pop() == {
                 'event': 'subscribe',
                 'subscription': 'complex.topic',
@@ -993,7 +1124,7 @@ class TestSession:
             for request in req_list_1 + req_list_2:
                 assert request.kwargs['json'] == {
                     'session_id': 'sess_123',
-                    'subscription': 'complex.topic'
+                    'subscription': 'complex.topic',
                 }
 
         # Test successful subscription with extra field and messages
@@ -1002,29 +1133,40 @@ class TestSession:
             mock.post(conf['before_subscribe'], payload={'status': 'ok'})
             mock.post(conf['on_subscribe'], payload={'doesnt': 'matter'})
             mock.post(conf['on_message'], payload={'status': 'ok'})
-            mock.post(conf['on_message'], payload={
-                'status': 'error',
-                'error': 'on message error',
-            })
-            mock.post(conf['on_message'], payload={
-                'status': 'error',
-                'error': 'on message error',
-                'data': {'extra': 'data'},
-            })
-            mock.post(conf['on_message'], payload={
-                'status': 'ok',
-                'data': None,
-            })
-            mock.post(conf['on_message'], payload={
-                'status': 'ok',
-                'data': {'reply': True}
-            })
+            mock.post(
+                conf['on_message'],
+                payload={
+                    'status': 'error',
+                    'error': 'on message error',
+                },
+            )
+            mock.post(
+                conf['on_message'],
+                payload={
+                    'status': 'error',
+                    'error': 'on message error',
+                    'data': {'extra': 'data'},
+                },
+            )
+            mock.post(
+                conf['on_message'],
+                payload={
+                    'status': 'ok',
+                    'data': None,
+                },
+            )
+            mock.post(
+                conf['on_message'],
+                payload={'status': 'ok', 'data': {'reply': True}},
+            )
 
-            await session.on_client_event({
-                'event': 'subscribe',
-                'subscription': 'complex.topic',
-                'extra': 'hello',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': 'complex.topic',
+                    'extra': 'hello',
+                }
+            )
             assert client.log.pop() == {
                 'event': 'subscribe',
                 'subscription': 'complex.topic',
@@ -1033,18 +1175,22 @@ class TestSession:
             }
 
             # Successful but no reply
-            await session.on_client_event({
-                'event': 'message',
-                'subscription': 'complex.topic',
-                'extra': 'irrelevant',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'message',
+                    'subscription': 'complex.topic',
+                    'extra': 'irrelevant',
+                }
+            )
 
-            await session.on_client_event({
-                'event': 'message',
-                'subscription': 'complex.topic',
-                'extra': 'irrelevant',
-                'data': {'foo': 'bar', 'baz': 123},
-            })
+            await session.on_client_event(
+                {
+                    'event': 'message',
+                    'subscription': 'complex.topic',
+                    'extra': 'irrelevant',
+                    'data': {'foo': 'bar', 'baz': 123},
+                }
+            )
             assert client.log.pop() == {
                 'event': 'message',
                 'subscription': 'complex.topic',
@@ -1053,12 +1199,14 @@ class TestSession:
                 'error': 'on message error',
             }
 
-            await session.on_client_event({
-                'event': 'message',
-                'subscription': 'complex.topic',
-                'extra': 'irrelevant',
-                'data': {'foo': 'bar', 'baz': 123},
-            })
+            await session.on_client_event(
+                {
+                    'event': 'message',
+                    'subscription': 'complex.topic',
+                    'extra': 'irrelevant',
+                    'data': {'foo': 'bar', 'baz': 123},
+                }
+            )
             assert client.log.pop() == {
                 'event': 'message',
                 'subscription': 'complex.topic',
@@ -1068,11 +1216,13 @@ class TestSession:
                 'data': {'extra': 'data'},
             }
 
-            await session.on_client_event({
-                'event': 'message',
-                'subscription': 'complex.topic',
-                'extra': 'irrelevant',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'message',
+                    'subscription': 'complex.topic',
+                    'extra': 'irrelevant',
+                }
+            )
             assert client.log.pop() == {
                 'event': 'message',
                 'subscription': 'complex.topic',
@@ -1080,11 +1230,13 @@ class TestSession:
                 'extra': 'hello',
             }
 
-            await session.on_client_event({
-                'event': 'message',
-                'subscription': 'complex.topic',
-                'extra': 'irrelevant',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'message',
+                    'subscription': 'complex.topic',
+                    'extra': 'irrelevant',
+                }
+            )
             assert client.log.pop() == {
                 'event': 'message',
                 'subscription': 'complex.topic',
@@ -1119,14 +1271,15 @@ class TestSession:
 
         # Test message from server to client
         redis_settings = TEST_CONFIG['REDIS']
-        redis = await aioredis.create_redis((
-            redis_settings['host'], redis_settings['port']))
+        redis = await aioredis.create_redis(
+            (redis_settings['host'], redis_settings['port'])
+        )
         redis_topic = redis_settings['channel_prefix'] + 'complex.topic'
 
-        await redis.publish_json(redis_topic, {
-            'subscription': 'complex.topic',
-            'data': {'foo': 'bar'}
-        })
+        await redis.publish_json(
+            redis_topic,
+            {'subscription': 'complex.topic', 'data': {'foo': 'bar'}},
+        )
 
         redis.close()
 
@@ -1146,17 +1299,22 @@ class TestSession:
         # Test unsubscribe callbacks
         with aioresponses() as mock:
             mock.post(conf['before_unsubscribe'], payload={'status': 'error'})
-            mock.post(conf['before_unsubscribe'], payload={
-                'status': 'error',
-                'error': 'before unsubscribe error',
-            })
+            mock.post(
+                conf['before_unsubscribe'],
+                payload={
+                    'status': 'error',
+                    'error': 'before unsubscribe error',
+                },
+            )
             mock.post(conf['before_unsubscribe'], payload={'status': 'ok'})
             mock.post(conf['on_unsubscribe'], payload={'doesnt': 'matter'})
 
-            await session.on_client_event({
-                'event': 'unsubscribe',
-                'subscription': 'complex.topic',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'unsubscribe',
+                    'subscription': 'complex.topic',
+                }
+            )
             assert client.log.pop() == {
                 'event': 'unsubscribe',
                 'subscription': 'complex.topic',
@@ -1165,10 +1323,12 @@ class TestSession:
                 'error': c.ERR_UNHANDLED_EXCEPTION,
             }
 
-            await session.on_client_event({
-                'event': 'unsubscribe',
-                'subscription': 'complex.topic',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'unsubscribe',
+                    'subscription': 'complex.topic',
+                }
+            )
             assert client.log.pop() == {
                 'event': 'unsubscribe',
                 'subscription': 'complex.topic',
@@ -1177,10 +1337,12 @@ class TestSession:
                 'error': 'before unsubscribe error',
             }
 
-            await session.on_client_event({
-                'event': 'unsubscribe',
-                'subscription': 'complex.topic',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'unsubscribe',
+                    'subscription': 'complex.topic',
+                }
+            )
             assert client.log.pop() == {
                 'event': 'unsubscribe',
                 'subscription': 'complex.topic',
@@ -1188,8 +1350,9 @@ class TestSession:
                 'extra': 'hello',
             }
 
-            req_list_1 = mock.requests[('POST',
-                                        URL(conf['before_unsubscribe']))]
+            req_list_1 = mock.requests[
+                ('POST', URL(conf['before_unsubscribe']))
+            ]
             req_list_2 = mock.requests[('POST', URL(conf['on_unsubscribe']))]
             for request in req_list_1 + req_list_2:
                 assert request.kwargs['json'] == {
@@ -1201,21 +1364,29 @@ class TestSession:
         # Test extra data in subscribe/unsubscribe callbacks
         with aioresponses() as mock:
             mock.post(conf['authorizer'], payload={'status': 'ok'})
-            mock.post(conf['before_subscribe'], payload={
-                'status': 'ok',
-                'data': {'foo': 'subscribe'},
-            })
+            mock.post(
+                conf['before_subscribe'],
+                payload={
+                    'status': 'ok',
+                    'data': {'foo': 'subscribe'},
+                },
+            )
             mock.post(conf['on_subscribe'], payload={})
-            mock.post(conf['before_unsubscribe'], payload={
-                'status': 'ok',
-                'data': {'foo': 'unsubscribe'},
-            })
+            mock.post(
+                conf['before_unsubscribe'],
+                payload={
+                    'status': 'ok',
+                    'data': {'foo': 'unsubscribe'},
+                },
+            )
             mock.post(conf['on_unsubscribe'], payload={})
 
-            await session.on_client_event({
-                'event': 'subscribe',
-                'subscription': 'complex.extra_data',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': 'complex.extra_data',
+                }
+            )
             assert client.log.pop() == {
                 'event': 'subscribe',
                 'subscription': 'complex.extra_data',
@@ -1223,10 +1394,12 @@ class TestSession:
                 'data': {'foo': 'subscribe'},
             }
 
-            await session.on_client_event({
-                'event': 'unsubscribe',
-                'subscription': 'complex.extra_data',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'unsubscribe',
+                    'subscription': 'complex.extra_data',
+                }
+            )
             assert client.log.pop() == {
                 'event': 'unsubscribe',
                 'subscription': 'complex.extra_data',
@@ -1250,10 +1423,12 @@ class TestSession:
         session = client.session
         await self._auth_session(session)
 
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': 'simple.one',
-        })
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': 'simple.one',
+            }
+        )
         assert session.client.log.pop() == {
             'status': 'ok',
             'event': 'subscribe',
@@ -1267,10 +1442,12 @@ class TestSession:
             mock.post(conf['before_subscribe'], payload={'status': 'ok'})
             mock.post(conf['on_subscribe'], payload={})
 
-            await session.on_client_event({
-                'event': 'subscribe',
-                'subscription': 'complex.two',
-            })
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': 'complex.two',
+                }
+            )
             assert session.client.log.pop() == {
                 'status': 'ok',
                 'event': 'subscribe',
@@ -1301,16 +1478,21 @@ class TestSession:
         conf = TEST_CONFIG['SERVICES']['simple_before_subscribe']
 
         with aioresponses() as mock:
-            mock.post(conf['before_subscribe'], payload={
-                'status': 'ok',
-                'options': {'order': 2},
-                'data': {'msg': 1}
-            })
+            mock.post(
+                conf['before_subscribe'],
+                payload={
+                    'status': 'ok',
+                    'options': {'order': 2},
+                    'data': {'msg': 1},
+                },
+            )
 
-            await session.on_client_event({
-                'event': 'subscribe',
-                'subscription': subscription,
-            })
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': subscription,
+                }
+            )
             assert client.log.pop() == {
                 'event': 'subscribe',
                 'subscription': subscription,
@@ -1320,62 +1502,93 @@ class TestSession:
 
         # Test message from server to client
         redis_settings = TEST_CONFIG['REDIS']
-        redis = await aioredis.create_redis((
-            redis_settings['host'], redis_settings['port']))
+        redis = await aioredis.create_redis(
+            (redis_settings['host'], redis_settings['port'])
+        )
         redis_topic = redis_settings['channel_prefix'] + subscription
 
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'order': 1},
-            'data': {'msg': 2},
-        })
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'order': 2},
-            'data': {'msg': 3},
-        })
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'order': 3},
-            'data': {'msg': 4},
-        })
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'order': 5},
-            'data': {'msg': 5},
-        })
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'order': 4},
-            'data': {'msg': 6},
-        })
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'order': 5},
-            'data': {'msg': 7},
-        })
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'order': 6},
-            'data': {'msg': 8},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'order': 1},
+                'data': {'msg': 2},
+            },
+        )
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'order': 2},
+                'data': {'msg': 3},
+            },
+        )
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'order': 3},
+                'data': {'msg': 4},
+            },
+        )
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'order': 5},
+                'data': {'msg': 5},
+            },
+        )
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'order': 4},
+                'data': {'msg': 6},
+            },
+        )
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'order': 5},
+                'data': {'msg': 7},
+            },
+        )
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'order': 6},
+                'data': {'msg': 8},
+            },
+        )
 
         # Test a different order key, and float order
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'order': 1.1, 'order_key': 'other'},
-            'data': {'other': 1},
-        })
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'order': 1.3, 'order_key': 'other'},
-            'data': {'other': 2},
-        })
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'order': 1.2, 'order_key': 'other'},
-            'data': {'other': 3},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'order': 1.1, 'order_key': 'other'},
+                'data': {'other': 1},
+            },
+        )
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'order': 1.3, 'order_key': 'other'},
+                'data': {'other': 2},
+            },
+        )
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'order': 1.2, 'order_key': 'other'},
+                'data': {'other': 3},
+            },
+        )
 
         redis.close()
 
@@ -1385,27 +1598,33 @@ class TestSession:
         has_messages = await shark.run_service_receiver(once=True)
         assert has_messages
 
-        assert client.log == [{
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'msg': 4},  # order 3
-        }, {
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'msg': 5},  # order 5
-        }, {
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'msg': 8},  # order 6
-        }, {
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'other': 1},  # other order 1
-        }, {
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'other': 2},  # other order 3
-        }]
+        assert client.log == [
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'msg': 4},  # order 3
+            },
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'msg': 5},  # order 5
+            },
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'msg': 8},  # order 6
+            },
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'other': 1},  # other order 1
+            },
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'other': 2},  # other order 3
+            },
+        ]
 
         await shark.shutdown()
 
@@ -1421,10 +1640,12 @@ class TestSession:
 
         subscription = 'simple.topic'
 
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': subscription,
-        })
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': subscription,
+            }
+        )
         assert client.log.pop() == {
             'event': 'subscribe',
             'subscription': subscription,
@@ -1433,20 +1654,27 @@ class TestSession:
 
         # Test message from server to client
         redis_settings = TEST_CONFIG['REDIS']
-        redis = await aioredis.create_redis((
-            redis_settings['host'], redis_settings['port']))
+        redis = await aioredis.create_redis(
+            (redis_settings['host'], redis_settings['port'])
+        )
         redis_topic = redis_settings['channel_prefix'] + subscription
 
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'order': 'invalid'},
-            'data': {'foo': 'invalid'},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'order': 'invalid'},
+                'data': {'foo': 'invalid'},
+            },
+        )
 
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'data': {'foo': 'bar'},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'data': {'foo': 'bar'},
+            },
+        )
 
         redis.close()
 
@@ -1456,15 +1684,18 @@ class TestSession:
         has_messages = await shark.run_service_receiver(once=True)
         assert has_messages
 
-        assert client.log == [{
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'foo': 'invalid'},
-        }, {
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'foo': 'bar'},
-        }]
+        assert client.log == [
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'foo': 'invalid'},
+            },
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'foo': 'bar'},
+            },
+        ]
 
         await shark.shutdown()
 
@@ -1477,11 +1708,13 @@ class TestSession:
 
         subscription = 'simple.topic'
 
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': subscription,
-            'extra': 'bar',
-        })
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': subscription,
+                'extra': 'bar',
+            }
+        )
         assert client.log.pop() == {
             'event': 'subscribe',
             'subscription': subscription,
@@ -1491,21 +1724,28 @@ class TestSession:
 
         # Test message from server to client
         redis_settings = TEST_CONFIG['REDIS']
-        redis = await aioredis.create_redis((
-            redis_settings['host'], redis_settings['port']))
+        redis = await aioredis.create_redis(
+            (redis_settings['host'], redis_settings['port'])
+        )
         redis_topic = redis_settings['channel_prefix'] + subscription
 
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'extra': 'foo',
-            'data': {'test': 'foo'},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'extra': 'foo',
+                'data': {'test': 'foo'},
+            },
+        )
 
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'extra': 'bar',
-            'data': {'test': 'bar'},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'extra': 'bar',
+                'data': {'test': 'bar'},
+            },
+        )
 
         # Wait for Redis to propagate the messages
         await asyncio.sleep(0.1)
@@ -1513,12 +1753,14 @@ class TestSession:
         has_messages = await shark.run_service_receiver(once=True)
         assert has_messages
 
-        assert client.log == [{
-            'event': 'message',
-            'subscription': subscription,
-            'extra': 'bar',
-            'data': {'test': 'bar'},
-        }]
+        assert client.log == [
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'extra': 'bar',
+                'data': {'test': 'bar'},
+            }
+        ]
 
         await shark.shutdown()
 
@@ -1536,6 +1778,7 @@ class TestSession:
             else:
                 loop = asyncio.get_event_loop()
                 return loop.create_future()
+
         dummy_ping.n_pings = 0
 
         shark = SocketShark(TEST_CONFIG)
@@ -1544,10 +1787,12 @@ class TestSession:
         session = client.session
 
         # Have at least one subscription so we-re in pubsub mode.
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': 'simple.topic',
-        })
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': 'simple.topic',
+            }
+        )
         assert client.log.pop() == {
             'event': 'subscribe',
             'subscription': 'simple.topic',
@@ -1580,20 +1825,29 @@ class TestSession:
         conf = TEST_CONFIG['SERVICES']['simple_before_subscribe']
 
         with aioresponses() as mock:
-            mock.post(conf['before_subscribe'], status=429, headers={
-                'X-Rate-Limit-Reset': '0.2',
-            })
-            mock.post(conf['before_subscribe'], payload={
-                'status': 'ok',
-                'data': {},
-            })
+            mock.post(
+                conf['before_subscribe'],
+                status=429,
+                headers={
+                    'X-Rate-Limit-Reset': '0.2',
+                },
+            )
+            mock.post(
+                conf['before_subscribe'],
+                payload={
+                    'status': 'ok',
+                    'data': {},
+                },
+            )
 
             start_time = time.time()
 
-            await session.on_client_event({
-                'event': 'subscribe',
-                'subscription': subscription,
-            })
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': subscription,
+                }
+            )
 
             assert client.log.pop() == {
                 'event': 'subscribe',
@@ -1651,10 +1905,12 @@ class TestThrottle:
 
         subscription = 'simple.topic'
 
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': subscription,
-        })
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': subscription,
+            }
+        )
         assert client.log.pop() == {
             'event': 'subscribe',
             'subscription': subscription,
@@ -1662,49 +1918,71 @@ class TestThrottle:
         }
 
         redis_settings = TEST_CONFIG['REDIS']
-        redis = await aioredis.create_redis((
-            redis_settings['host'], redis_settings['port']))
+        redis = await aioredis.create_redis(
+            (redis_settings['host'], redis_settings['port'])
+        )
         redis_topic = redis_settings['channel_prefix'] + subscription
 
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'throttle': 0.2},
-            'data': {'foo': 'one'},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'throttle': 0.2},
+                'data': {'foo': 'one'},
+            },
+        )
 
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'throttle': 1, 'throttle_key': 'other'},
-            'data': {'bar': 'one'},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'throttle': 1, 'throttle_key': 'other'},
+                'data': {'bar': 'one'},
+            },
+        )
 
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'throttle': 'invalid'},
-            'data': {'invalid': 'one'},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'throttle': 'invalid'},
+                'data': {'invalid': 'one'},
+            },
+        )
 
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'data': {'unthrottled': 'one'},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'data': {'unthrottled': 'one'},
+            },
+        )
 
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'throttle': 0.2},
-            'data': {'foo': 'two'},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'throttle': 0.2},
+                'data': {'foo': 'two'},
+            },
+        )
 
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'throttle': 0.2},
-            'data': {'foo': 'three'},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'throttle': 0.2},
+                'data': {'foo': 'three'},
+            },
+        )
 
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'data': {'unthrottled': 'two'},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'data': {'unthrottled': 'two'},
+            },
+        )
 
         # Wait for Redis to propagate the messages
         await asyncio.sleep(0.1)
@@ -1714,46 +1992,57 @@ class TestThrottle:
 
         # Ensure the first message (foo, bar) is immediately published, and
         # that unthrottled messages are always published.
-        assert client.log == [{
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'foo': 'one'},
-        }, {
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'bar': 'one'},
-        }, {
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'invalid': 'one'},
-        }, {
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'unthrottled': 'one'},
-        }, {
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'unthrottled': 'two'},
-        }]
+        assert client.log == [
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'foo': 'one'},
+            },
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'bar': 'one'},
+            },
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'invalid': 'one'},
+            },
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'unthrottled': 'one'},
+            },
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'unthrottled': 'two'},
+            },
+        ]
         client.log = []
 
         await asyncio.sleep(0.2)
 
         # Ensure the last throttled message is eventually published.
-        assert client.log == [{
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'foo': 'three'},
-        }]
+        assert client.log == [
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'foo': 'three'},
+            }
+        ]
         client.log = []
 
         await asyncio.sleep(0.2)
 
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'throttle': 0.2},
-            'data': {'foo': 'four'},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'throttle': 0.2},
+                'data': {'foo': 'four'},
+            },
+        )
 
         # Wait for Redis to propagate the message
         await asyncio.sleep(0.1)
@@ -1762,11 +2051,13 @@ class TestThrottle:
         assert has_messages
 
         # Ensure we immediately publish after the throttle period is over.
-        assert client.log == [{
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'foo': 'four'},
-        }]
+        assert client.log == [
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'foo': 'four'},
+            }
+        ]
 
         redis.close()
 
@@ -1781,10 +2072,12 @@ class TestThrottle:
 
         subscription = 'simple.topic'
 
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': subscription,
-        })
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': subscription,
+            }
+        )
         assert client.log.pop() == {
             'event': 'subscribe',
             'subscription': subscription,
@@ -1792,20 +2085,27 @@ class TestThrottle:
         }
 
         redis_settings = TEST_CONFIG['REDIS']
-        redis = await aioredis.create_redis((
-            redis_settings['host'], redis_settings['port']))
+        redis = await aioredis.create_redis(
+            (redis_settings['host'], redis_settings['port'])
+        )
         redis_topic = redis_settings['channel_prefix'] + subscription
 
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'throttle': 1},
-            'data': {'foo': 'one'},
-        })
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'throttle': 1},
-            'data': {'foo': 'two'},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'throttle': 1},
+                'data': {'foo': 'one'},
+            },
+        )
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'throttle': 1},
+                'data': {'foo': 'two'},
+            },
+        )
 
         # Wait for Redis to propagate the messages
         await asyncio.sleep(0.1)
@@ -1813,16 +2113,20 @@ class TestThrottle:
         has_messages = await shark.run_service_receiver(once=True)
         assert has_messages
 
-        assert client.log == [{
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'foo': 'one'},
-        }]
+        assert client.log == [
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'foo': 'one'},
+            }
+        ]
 
-        await session.on_client_event({
-            'event': 'unsubscribe',
-            'subscription': subscription,
-        })
+        await session.on_client_event(
+            {
+                'event': 'unsubscribe',
+                'subscription': subscription,
+            }
+        )
 
         redis.close()
 
@@ -1842,10 +2146,12 @@ class TestThrottle:
 
         subscription = 'simple.topic'
 
-        await session.on_client_event({
-            'event': 'subscribe',
-            'subscription': subscription,
-        })
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': subscription,
+            }
+        )
         assert client.log.pop() == {
             'event': 'subscribe',
             'subscription': subscription,
@@ -1853,20 +2159,27 @@ class TestThrottle:
         }
 
         redis_settings = TEST_CONFIG['REDIS']
-        redis = await aioredis.create_redis((
-            redis_settings['host'], redis_settings['port']))
+        redis = await aioredis.create_redis(
+            (redis_settings['host'], redis_settings['port'])
+        )
         redis_topic = redis_settings['channel_prefix'] + subscription
 
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'throttle': throttle},
-            'data': {'foo': 'one'},
-        })
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'throttle': throttle},
-            'data': {'foo': 'two'},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'throttle': throttle},
+                'data': {'foo': 'one'},
+            },
+        )
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'throttle': throttle},
+                'data': {'foo': 'two'},
+            },
+        )
 
         # Wait for Redis to propagate the messages
         await asyncio.sleep(0.1)
@@ -1875,11 +2188,13 @@ class TestThrottle:
         assert has_messages
 
         # First message was delivered immediately.
-        assert client.log == [{
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'foo': 'one'},
-        }]
+        assert client.log == [
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'foo': 'one'},
+            }
+        ]
         client.log = []
 
         # Slow down sending of the second message.
@@ -1899,11 +2214,14 @@ class TestThrottle:
         Session.send_message = original
 
         # Send a third message.
-        await redis.publish_json(redis_topic, {
-            'subscription': subscription,
-            'options': {'throttle': throttle},
-            'data': {'foo': 'three'},
-        })
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'options': {'throttle': throttle},
+                'data': {'foo': 'three'},
+            },
+        )
 
         # Wait for Redis to propagate the messages
         await asyncio.sleep(0.1)
@@ -1929,16 +2247,20 @@ class TestThrottle:
             # longer slowing down sending)
             await asyncio.sleep(throttle - wait)
 
-        assert client.log == [{
-            'event': 'message',
-            'subscription': subscription,
-            'data': {'foo': 'three'},
-        }]
+        assert client.log == [
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'foo': 'three'},
+            }
+        ]
 
-        await session.on_client_event({
-            'event': 'unsubscribe',
-            'subscription': subscription,
-        })
+        await session.on_client_event(
+            {
+                'event': 'unsubscribe',
+                'subscription': subscription,
+            }
+        )
 
         redis.close()
 
@@ -1952,8 +2274,9 @@ class TestWebsocket:
 
     @property
     def ws_url(self):
-        return 'http://{}:{}'.format(TEST_CONFIG['WS_HOST'],
-                                     TEST_CONFIG['WS_PORT'])
+        return 'http://{}:{}'.format(
+            TEST_CONFIG['WS_HOST'], TEST_CONFIG['WS_PORT']
+        )
 
     def test_websocket(self):
         shark = SocketShark(TEST_CONFIG)
@@ -1971,10 +2294,14 @@ class TestWebsocket:
             conf = TEST_CONFIG['SERVICES']['ws_test']
 
             async with aiosession.ws_connect(self.ws_url) as ws:
-                await ws.send_str(json.dumps({
-                    'event': 'subscribe',
-                    'subscription': 'ws_test.hello',
-                }))
+                await ws.send_str(
+                    json.dumps(
+                        {
+                            'event': 'subscribe',
+                            'subscription': 'ws_test.hello',
+                        }
+                    )
+                )
                 msg = await ws.receive()
                 assert msg.type == aiohttp.WSMsgType.TEXT
                 data = json.loads(msg.data)
@@ -1997,7 +2324,8 @@ class TestWebsocket:
             requests = mock.requests[('POST', URL(conf['on_unsubscribe']))]
             assert len(requests) == 1
             assert requests[0].kwargs['json'] == {
-                'subscription': 'ws_test.hello'}
+                'subscription': 'ws_test.hello'
+            }
 
             await shark.shutdown()
 
@@ -2023,10 +2351,14 @@ class TestWebsocket:
             aiosession = aiohttp.ClientSession()
 
             async with aiosession.ws_connect(self.ws_url) as ws:
-                await ws.send_str(json.dumps({
-                    'event': 'subscribe',
-                    'subscription': 'ws_test.hello',
-                }))
+                await ws.send_str(
+                    json.dumps(
+                        {
+                            'event': 'subscribe',
+                            'subscription': 'ws_test.hello',
+                        }
+                    )
+                )
                 msg = await ws.receive()
                 assert msg.type == aiohttp.WSMsgType.TEXT
                 data = json.loads(msg.data)
@@ -2054,8 +2386,7 @@ class TestWebsocket:
 
         requests = mock.requests[('POST', URL(conf['on_unsubscribe']))]
         assert len(requests) == 1
-        assert requests[0].kwargs['json'] == {
-                'subscription': 'ws_test.hello'}
+        assert requests[0].kwargs['json'] == {'subscription': 'ws_test.hello'}
 
     def test_shutdown_connections(self):
         """
@@ -2073,10 +2404,14 @@ class TestWebsocket:
             aiosession = aiohttp.ClientSession()
 
             async with aiosession.ws_connect(self.ws_url) as ws:
-                await ws.send_str(json.dumps({
-                    'event': 'subscribe',
-                    'subscription': 'ws_test.hello',
-                }))
+                await ws.send_str(
+                    json.dumps(
+                        {
+                            'event': 'subscribe',
+                            'subscription': 'ws_test.hello',
+                        }
+                    )
+                )
                 msg = await ws.receive()
                 assert msg.type == aiohttp.WSMsgType.TEXT
                 data = json.loads(msg.data)
@@ -2115,13 +2450,13 @@ class TestWebsocket:
 
         requests = mock.requests[('POST', URL(conf['on_unsubscribe']))]
         assert len(requests) == 1
-        assert requests[0].kwargs['json'] == {
-                'subscription': 'ws_test.hello'}
+        assert requests[0].kwargs['json'] == {'subscription': 'ws_test.hello'}
 
     def test_ping(self):
         """
         Ensure server sends periodic pings and disconnects timed out clients.
         """
+
         async def task():
             # Wait until backend is ready.
             await asyncio.sleep(0.1)
@@ -2129,8 +2464,9 @@ class TestWebsocket:
             aiosession = aiohttp.ClientSession()
 
             # Set up client with autoping disabled.
-            async with aiosession.ws_connect(self.ws_url,
-                                             autoping=False) as ws:
+            async with aiosession.ws_connect(
+                self.ws_url, autoping=False
+            ) as ws:
 
                 # Respond to ping in time
                 msg = await ws.receive()
@@ -2161,13 +2497,15 @@ class TestWebsocket:
         Ensure we can receive service messages when sending a message fails due
         a timed out WebSocket.
         """
+
         async def task():
             subscription = 'simple.topic'
 
             # Set up Redis connection
             redis_settings = TEST_CONFIG['REDIS']
-            redis = await aioredis.create_redis((
-                redis_settings['host'], redis_settings['port']))
+            redis = await aioredis.create_redis(
+                (redis_settings['host'], redis_settings['port'])
+            )
             redis_topic = redis_settings['channel_prefix'] + subscription
 
             # Wait until backend is ready.
@@ -2176,13 +2514,18 @@ class TestWebsocket:
             aiosession = aiohttp.ClientSession()
 
             # Set up client with autoping disabled.
-            async with aiosession.ws_connect(self.ws_url,
-                                             autoping=False) as ws1:
+            async with aiosession.ws_connect(
+                self.ws_url, autoping=False
+            ) as ws1:
 
-                await ws1.send_str(json.dumps({
-                    'event': 'subscribe',
-                    'subscription': subscription,
-                }))
+                await ws1.send_str(
+                    json.dumps(
+                        {
+                            'event': 'subscribe',
+                            'subscription': subscription,
+                        }
+                    )
+                )
                 msg = await ws1.receive()
                 assert msg.type == aiohttp.WSMsgType.TEXT
                 data = json.loads(msg.data)
@@ -2198,10 +2541,10 @@ class TestWebsocket:
                 await asyncio.sleep(0.1)
 
                 # Publish a message that may hit a closed WebSocket
-                await redis.publish_json(redis_topic, {
-                    'subscription': subscription,
-                    'data': {'baz': 'old'}
-                })
+                await redis.publish_json(
+                    redis_topic,
+                    {'subscription': subscription, 'data': {'baz': 'old'}},
+                )
 
                 # Ensure we get disconnected
                 msg = await ws1.receive()
@@ -2212,10 +2555,14 @@ class TestWebsocket:
 
             # Set up a new connection
             ws2 = await aiosession.ws_connect(self.ws_url)
-            await ws2.send_str(json.dumps({
-                'event': 'subscribe',
-                'subscription': subscription,
-            }))
+            await ws2.send_str(
+                json.dumps(
+                    {
+                        'event': 'subscribe',
+                        'subscription': subscription,
+                    }
+                )
+            )
 
             msg = await ws2.receive()
             assert msg.type == aiohttp.WSMsgType.TEXT
@@ -2227,10 +2574,10 @@ class TestWebsocket:
             }
 
             # Publish a new message
-            await redis.publish_json(redis_topic, {
-                'subscription': subscription,
-                'data': {'baz': 'new'}
-            })
+            await redis.publish_json(
+                redis_topic,
+                {'subscription': subscription, 'data': {'baz': 'new'}},
+            )
 
             # Wait until backend is ready.
             await asyncio.sleep(0.1)
@@ -2259,6 +2606,7 @@ class TestWebsocket:
         """
         Ensure server disconnects clients when Redis connection closes.
         """
+
         async def task():
             # Wait until backend is ready.
             await asyncio.sleep(0.1)
@@ -2267,10 +2615,14 @@ class TestWebsocket:
 
             ws1 = await aiosession.ws_connect(self.ws_url)
             ws2 = await aiosession.ws_connect(self.ws_url)
-            await ws2.send_str(json.dumps({
-                'event': 'subscribe',
-                'subscription': 'simple.hello',
-            }))
+            await ws2.send_str(
+                json.dumps(
+                    {
+                        'event': 'subscribe',
+                        'subscription': 'simple.hello',
+                    }
+                )
+            )
             msg = await ws2.receive()
             assert msg.type == aiohttp.WSMsgType.TEXT
             data = json.loads(msg.data)
