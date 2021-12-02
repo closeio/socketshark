@@ -1,4 +1,6 @@
 version: 2
+orbs:
+  slack: circleci/slack@4.4.4
 
 workflows:
   version: 2
