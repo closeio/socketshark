@@ -113,8 +113,6 @@ jobs:
           command: |
             lintlizard
 
-      - slack/notify: *slack-fail-notification
-
   test-3.6:
     <<: *defaults
     docker:
