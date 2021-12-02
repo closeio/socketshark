@@ -5,6 +5,7 @@ class Metrics:
     """
     Main metrics class. Proxies events to configured metrics providers.
     """
+
     def __init__(self, shark):
         self.shark = shark
         metrics_config = shark.config['METRICS']

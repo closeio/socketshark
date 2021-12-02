@@ -6,6 +6,7 @@ class Session:
     """
     Represents a client session
     """
+
     def __init__(self, shark, client, info={}):
         """
         Initialize a session with

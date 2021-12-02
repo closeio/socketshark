@@ -8,14 +8,20 @@ class PrometheusMetrics:
     """
     Prometheus metrics provider.
     """
+
     def __init__(self, shark, config):
         self.ready_gauge = Gauge('socketshark_service_state', 'Service status')
-        self.active_connections_gauge = Gauge('socketshark_connection_count',
-                                              'Active connections')
-        self.connection_counter = Counter('socketshark_connection_total',
-                                          'Connection total')
-        self.event_counter = Gauge('socketshark_event_success_counter',
-                                   'Event success counter', ['event', 'status'])
+        self.active_connections_gauge = Gauge(
+            'socketshark_connection_count', 'Active connections'
+        )
+        self.connection_counter = Counter(
+            'socketshark_connection_total', 'Connection total'
+        )
+        self.event_counter = Gauge(
+            'socketshark_event_success_counter',
+            'Event success counter',
+            ['event', 'status'],
+        )
 
         self.config = config
         self.active_connections = 0
@@ -23,9 +29,11 @@ class PrometheusMetrics:
 
     def initialize(self):
         # Run Prometheus but don't fail hard if it doesn't start.
-        asyncio.ensure_future(start_http_server(
-            addr=self.config.get('host', ''),
-            port=self.config['port']))
+        asyncio.ensure_future(
+            start_http_server(
+                addr=self.config.get('host', ''), port=self.config['port']
+            )
+        )
 
     def decrease_connection_count(self):
         self.active_connections -= 1

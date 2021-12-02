@@ -1,13 +1,14 @@
 import asyncio
-from collections import defaultdict
 import json
 import time
+from collections import defaultdict
 
 
 class ServiceReceiver:
     """
     Receives messages from services and forwards them to subscribing sessions.
     """
+
     def __init__(self, shark, redis_receiver):
         self.shark = shark
 
@@ -56,7 +57,8 @@ class ServiceReceiver:
                 wait = asyncio.ensure_future(asyncio.sleep(ping_timeout))
 
                 done, pending = await asyncio.wait(
-                    [ping, wait], return_when=asyncio.FIRST_COMPLETED)
+                    [ping, wait], return_when=asyncio.FIRST_COMPLETED
+                )
 
                 if ping in pending:
                     # Ping timeout
@@ -65,8 +67,9 @@ class ServiceReceiver:
                     break
 
                 latency = time.time() - start_time
-                self.shark.trace_log.debug('redis pong',
-                                           latency=round(latency, 3))
+                self.shark.trace_log.debug(
+                    'redis pong', latency=round(latency, 3)
+                )
 
         except asyncio.CancelledError:  # Cancelled by stop()
             if ping:
@@ -108,9 +111,11 @@ class ServiceReceiver:
                 # on_service_event. We therefore create a snapshot before
                 # looping.
                 confirmed_sessions = list(
-                        self.confirmed_subscriptions[subscription])
+                    self.confirmed_subscriptions[subscription]
+                )
                 provisional_sesssions = list(
-                        self.provisional_subscriptions[subscription])
+                    self.provisional_subscriptions[subscription]
+                )
                 for session in confirmed_sessions:
                     await session.on_service_event(data)
                 for session in provisional_sesssions:
@@ -125,8 +130,9 @@ class ServiceReceiver:
     async def add_provisional_subscription(self, session, subscription):
         if subscription not in self.subscriptions:
             self.subscriptions.add(subscription)
-            await self.redis.subscribe(self.redis_receiver.channel(
-                self._channel(subscription)))
+            await self.redis.subscribe(
+                self.redis_receiver.channel(self._channel(subscription))
+            )
         self.provisional_subscriptions[subscription].add(session)
 
     async def confirm_subscription(self, session, subscription):

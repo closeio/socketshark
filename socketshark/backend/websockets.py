@@ -11,9 +11,13 @@ from ..session import Session
 class Client:
     def __init__(self, shark, websocket):
         self.websocket = websocket
-        self.session = Session(shark, self, info={
-            'remote': websocket.remote_address,
-        })
+        self.session = Session(
+            shark,
+            self,
+            info={
+                'remote': websocket.remote_address,
+            },
+        )
         self.shark = shark
 
     async def ping_timeout_handler(self, ping):
@@ -48,7 +52,8 @@ class Client:
                 return
 
             timeout_handler = asyncio.ensure_future(
-                    self.ping_timeout_handler(ping))
+                self.ping_timeout_handler(ping)
+            )
             await ping
             latency = time.time() - start_time
             self.session.trace_log.debug('pong', latency=round(latency, 3))
@@ -67,10 +72,12 @@ class Client:
                         data = json.loads(event)
                     except json.decoder.JSONDecodeError:
                         self.session.log.warn('received invalid json')
-                        await self.send({
-                            "status": "error",
-                            "error": c.ERR_INVALID_EVENT,
-                        })
+                        await self.send(
+                            {
+                                "status": "error",
+                                "error": c.ERR_INVALID_EVENT,
+                            }
+                        )
                     else:
                         await self.session.on_client_event(data)
             except websockets.ConnectionClosed:
@@ -119,13 +126,15 @@ class Backend:
         Called by SocketShark to initialize the server and prepare & run
         SocketShark.
         """
+
         async def serve(websocket, path):
             # If there are any pending connections that were established after
             # calling close() but before this callback was executed, close
             # them immediately.
             if self._closed:
-                self.shark.log.warn('dropped connection',
-                                    remote=websocket.remote_address)
+                self.shark.log.warn(
+                    'dropped connection', remote=websocket.remote_address
+                )
                 return
             client = Client(self.shark, websocket)
             await client.consumer_handler()
@@ -134,10 +143,9 @@ class Backend:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.shark.prepare())
         ssl_context = self.shark.get_ssl_context()
-        start_server = websockets.serve(serve,
-                                        config['WS_HOST'],
-                                        config['WS_PORT'],
-                                        ssl=ssl_context)
+        start_server = websockets.serve(
+            serve, config['WS_HOST'], config['WS_PORT'], ssl=ssl_context
+        )
         self.server = loop.run_until_complete(start_server)
         self.shark.signal_ready()
         loop.run_until_complete(self.shark.run())
