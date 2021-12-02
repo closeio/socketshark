@@ -4,6 +4,9 @@ workflows:
   version: 2
   workflow:
     jobs:
+      - static-code-analysis:
+          context:
+            - docker-hub-creds-ro
       - test-3.6:
           context:
             - docker-hub-creds-ro
