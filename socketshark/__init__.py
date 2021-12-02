@@ -7,9 +7,9 @@ import ssl
 import sys
 
 import aioredis
-from aioredis.pubsub import Receiver
 import click
 import structlog
+from aioredis.pubsub import Receiver
 
 from . import config_defaults
 from .metrics import Metrics

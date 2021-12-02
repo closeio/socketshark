@@ -1,7 +1,7 @@
 import asyncio
-from collections import defaultdict
 import json
 import time
+from collections import defaultdict
 
 
 class ServiceReceiver:
