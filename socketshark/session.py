@@ -7,7 +7,7 @@ class Session:
     Represents a client session
     """
 
-    def __init__(self, shark, client, info={}):
+    def __init__(self, shark, client, info=None):
         """
         Initialize a session with
         - `shark`: a SocketShark instance,
@@ -16,6 +16,7 @@ class Session:
         - `info`: a dict with any other information that should be logged (e.g.
                   the client's remote address).
         """
+        info = info if info is not None else {}
         self.auth_info = {}
         self.shark = shark
         self.config = shark.config
@@ -101,7 +102,7 @@ class Session:
 
     async def send(self, data):
         """
-        Sends a JSON message to the client.
+        Send a JSON message to the client.
         """
         self.log.debug('client send', data=data)
         await self.client.send(data)

@@ -8,12 +8,11 @@ import aiohttp
 import aioredis
 import pytest
 from aioresponses import aioresponses
-from yarl import URL
-
 from socketshark import SocketShark, config_defaults
 from socketshark import constants as c
 from socketshark import setup_logging
 from socketshark.session import Session
+from yarl import URL
 
 LOCAL_REDIS_HOST = os.environ.get('LOCAL_REDIS_HOST')
 if not LOCAL_REDIS_HOST:
@@ -113,7 +112,7 @@ class aioresponses_delayed(aioresponses):  # noqa
         return result
 
 
-class MockClient:
+class MockClient:  # noqa SIM119
     def __init__(self, shark):
         self.log = []
         self.session = Session(shark, self)
@@ -219,7 +218,7 @@ class TestSession:
     @pytest.mark.asyncio
     async def test_auth_invalid(self):
         """
-        Test invalid authentication method
+        Test invalid authentication method.
         """
         shark = SocketShark(TEST_CONFIG)
         client = MockClient(shark)
@@ -358,7 +357,7 @@ class TestSession:
     @pytest.mark.asyncio
     async def test_subscription_invalid(self):
         """
-        Test subscription validation
+        Test subscription validation.
         """
         shark = SocketShark(TEST_CONFIG)
         client = MockClient(shark)
@@ -512,7 +511,7 @@ class TestSession:
 
         conf_subs = shark.service_receiver.confirmed_subscriptions
         sessions = conf_subs['simple.topic']
-        assert sessions == set([session])
+        assert sessions == {session}
 
         # Test message from client to server
         await session.on_client_event(
@@ -1452,7 +1451,7 @@ class TestSession:
             }
 
         subscription_names = set(session.subscriptions.keys())
-        assert subscription_names == set(['simple.one', 'complex.two'])
+        assert subscription_names == {'simple.one', 'complex.two'}
 
         await session.on_close()
 
@@ -2436,7 +2435,7 @@ class TestWebsocket:
             # Attempt a new connection.
             with pytest.raises(aiohttp.ClientConnectionError):
                 async with aiosession.ws_connect(self.ws_url) as ws:
-                    assert False  # Whoops!
+                    raise AssertionError()  # Whoops!
 
             await aiosession.close()
 

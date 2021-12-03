@@ -8,7 +8,7 @@ from .utils import http_post
 
 def _get_options(data):
     """
-    Returns a dict of parsed message options.
+    Return a dict of parsed message options.
     """
     raw_options = data.get('options', {})
 
@@ -92,7 +92,7 @@ class Subscription:
 
     def prepare_service_data(self):
         """
-        Returns a data dict to be sent to the service handler.
+        Return a data dict to be sent to the service handler.
         """
         data = {'subscription': self.name}
         data.update(self.extra_data)
@@ -104,10 +104,12 @@ class Subscription:
     async def perform_service_request(
         self,
         service_event,
-        extra_data={},
+        extra_data=None,
         error_message=None,
         raise_error=True,
     ):
+        extra_data = extra_data if extra_data is not None else {}
+
         if service_event in self.service_config:
             url = self.service_config[service_event]
             data = self.prepare_service_data()
@@ -199,7 +201,7 @@ class Subscription:
 
     def _should_deliver_message_filter_fields(self, data):
         """
-        Returns whether to deliver the given message based on filter feilds.
+        Return whether to deliver the given message based on filter feilds.
         """
         # Check whether the message is filtered by comparing any defined
         # filter_fields to auth_info and extra_fields.
@@ -217,7 +219,7 @@ class Subscription:
 
     def _should_deliver_message_order(self, data, options):
         """
-        Returns whether to deliver the given message based on order.
+        Return whether to deliver the given message based on order.
         """
         order = options['order']
         if order is None:
@@ -236,7 +238,7 @@ class Subscription:
 
     def _should_deliver_message_throttle(self, data, options):
         """
-        Returns whether to deliver the given message based on throttling.
+        Return whether to deliver the given message based on throttling.
         """
         throttle = options['throttle']
         if throttle is None:
@@ -272,7 +274,7 @@ class Subscription:
 
     def should_deliver_message(self, data):
         """
-        Returns whether to deliver the given message.
+        Return whether to deliver the given message.
         """
         options = _get_options(data)
 
@@ -349,7 +351,7 @@ class Subscription:
 
     async def subscribe(self, event):
         """
-        Subscribes to the subscription.
+        Subscribe to the subscription.
         """
         require_authentication = self.service_config.get(
             'require_authentication', True
@@ -387,7 +389,7 @@ class Subscription:
 
     async def message(self, event):
         """
-        Sends a message to the subscription.
+        Send a message to the subscription.
         """
         if self.name not in self.session.subscriptions:
             raise EventError(c.ERR_SUBSCRIPTION_NOT_FOUND)
@@ -414,7 +416,7 @@ class Subscription:
 
     async def unsubscribe(self, event):
         """
-        Unsubscribes from the subscription.
+        Unsubscribe from the subscription.
         """
         if self.name not in self.session.subscriptions:
             raise EventError(c.ERR_SUBSCRIPTION_NOT_FOUND)
@@ -430,7 +432,7 @@ class Subscription:
 
     async def self_unsubscribe(self, error):
         """
-        Unsubscribes from the subscription (not triggered by the user).
+        Unsubscribe from the subscription (not triggered by the user).
         """
         del self.session.subscriptions[self.name]
         await self.cleanup_subscription()
@@ -441,7 +443,7 @@ class Subscription:
 
     async def force_unsubscribe(self):
         """
-        Force-unsubscribes from the subscription. Caller is responsible for
+        Force-unsubscribe from the subscription. Caller is responsible for
         deleting the subscription from the session's subscriptions array.
         This method is called when a session is disconnected.
         """

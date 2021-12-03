@@ -61,7 +61,7 @@ def setup_structlog(tty=False):
 
 def load_backend(config):
     """
-    Returns the backend module from the given SocketShark configuration.
+    Return the backend module from the given SocketShark configuration.
     """
     backend_name = config.get('BACKEND', 'websockets')
     backend_module = 'socketshark.backend.{}'.format(backend_name)
@@ -93,7 +93,7 @@ class SocketShark:
 
     def signal_ready(self):
         """
-        Called by the backend to notify that the backend is ready.
+        Notify that the backend is ready.
         """
         self.log.info(
             '🦈  ready',
@@ -105,7 +105,7 @@ class SocketShark:
 
     def signal_shutdown(self):
         """
-        Called by the backend to notify that the backend shut down.
+        Notify that the backend shut down.
         """
         self.log.info('done')
         self.metrics.set_ready(False)
@@ -122,8 +122,8 @@ class SocketShark:
 
     async def prepare(self):
         """
-        Called by the backend to prepare SocketShark (i.e. initialize Redis
-        connection and the receiver class)
+        Prepare SocketShark (i.e. initialize Redis connection and
+        the receiver class).
         """
         redis_receiver = Receiver(loop=asyncio.get_event_loop())
         redis_settings = self.config['REDIS']
@@ -157,7 +157,7 @@ class SocketShark:
 
     async def shutdown(self):
         """
-        Cleanly shutdown SocketShark.
+        Shut down SocketShark cleanly.
         """
         if self._shutdown:
             return
@@ -201,7 +201,7 @@ class SocketShark:
 
     def start(self):
         """
-        Main entrypoint into SocketShark.
+        Start the backend (main entrypoint into SocketShark).
         """
         self.backend.start()
 
@@ -211,14 +211,16 @@ class SocketShark:
 
     async def run(self, once=False):
         """
-        SocketShark main coroutine, invoked by the backend.
+        Set up SocketShark signal handlers and run the service receiver.
+
+        Main SocketShark coroutine, invoked by the backend.
         """
         self._install_signal_handlers()
         self._task = asyncio.ensure_future(self._run())
 
     def _install_signal_handlers(self):
         """
-        Sets up signal handlers for safely stopping the worker.
+        Set up signal handlers for safely stopping the worker.
         """
 
         def request_stop():
@@ -231,7 +233,7 @@ class SocketShark:
 
     def _uninstall_signal_handlers(self):
         """
-        Restores default signal handlers.
+        Restore default signal handlers.
         """
         loop = asyncio.get_event_loop()
         loop.remove_signal_handler(signal.SIGINT)
