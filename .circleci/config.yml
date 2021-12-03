@@ -28,7 +28,6 @@ defaults: &defaults
   - run:
       name: Install dependencies
       command: |
-        sudo pip install -r requirements.txt
         sudo pip install -r requirements_tests.txt
   - run:
       name: Test
@@ -93,7 +92,7 @@ jobs:
       - run:
           name: Install dependencies
           command: |
-            pip install -r requirements_prometheus.txt -r requirements_tests.txt -r requirements.txt
+            pip install -r requirements_lint.txt
 
       - run:
           name: Lint
