@@ -1,10 +1,12 @@
+from typing import Any, Dict
+
 # Default settings that can be overridden.
 
 # Which WebSocket backend to use. Currently only "websockets" is supported.
 BACKEND = 'websockets'
 
 # Logging config
-LOG = {
+LOG: Dict[str, Any] = {
     'setup_structlog': True,
     'level': 'INFO',  # Set to None to disable logging setup
     'format': '%(message)s',
@@ -15,7 +17,7 @@ LOG = {
     'trace_level': 'INFO',
 }
 
-METRICS = {
+METRICS: Dict[str, Any] = {
     # Set a port to enable Prometheus integration
     # 'prometheus': {
     #     'host': '',
@@ -28,12 +30,12 @@ METRICS = {
 # Host and port to bind WebSockets.
 WS_HOST = '127.0.0.1'
 WS_PORT = '9000'
-WS_SSL = {
+WS_SSL: Dict[str, str] = {
     # 'cert': '/path/to/ssl.crt',
     # 'key': '/path/to/ssl.key',
 }
 
-WS_PING = {
+WS_PING: Dict[str, int] = {
     # How often to ping WebSocket connections in seconds (None to not ping).
     'interval': 15,
     # Seconds after which we disconnect clients with no ping response.
@@ -41,7 +43,7 @@ WS_PING = {
 }
 
 # HTTP options when querying services.
-HTTP = {
+HTTP: Dict[str, Any] = {
     # Optional path to custom CA file.
     'ssl_cafile': None,
     'timeout': 15,
@@ -53,7 +55,7 @@ HTTP = {
 }
 
 # Redis options
-REDIS = {
+REDIS: Dict[str, Any] = {
     'host': 'localhost',
     'port': 6379,
     'channel_prefix': '',
@@ -64,7 +66,7 @@ REDIS = {
 }
 
 # Authentication
-AUTHENTICATION = {}
+AUTHENTICATION: Dict[str, Any] = {}
 
 # List of services
-SERVICES = {}
+SERVICES: Dict[str, Any] = {}
