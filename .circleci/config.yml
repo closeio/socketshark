@@ -1,6 +1,4 @@
 version: 2
-orbs:
-  slack: circleci/slack@4.4.4
 
 workflows:
   version: 2
@@ -32,51 +30,6 @@ defaults: &defaults
   - run:
       name: Test
       command: PYTHONPATH=. pytest
-
-slack-fail: &slack-fail-notification
-    channel: eng-backend
-    branch_pattern: master
-    event: fail
-    custom: |
-      {
-          "text": "CircleCI job failed.",
-          "blocks": [
-              {
-                  "type": "header",
-                  "text": {
-                      "type": "plain_text",
-                      "text": "CircleCI Failed. :red_circle:",
-                      "emoji": true
-                  }
-              },
-              {
-                  "type": "section",
-                  "fields": [
-                      {
-                          "type": "mrkdwn",
-                          "text": "*Project*: $CIRCLE_PROJECT_REPONAME"
-                      },
-                      {
-                          "type": "mrkdwn",
-                          "text": "*Author*: $CIRCLE_USERNAME"
-                      }
-                  ]
-              },
-              {
-                  "type": "actions",
-                  "elements": [
-                      {
-                          "type": "button",
-                          "text": {
-                              "type": "plain_text",
-                              "text": "View Job"
-                          },
-                          "url": "${CIRCLE_BUILD_URL}"
-                      }
-                  ]
-              }
-          ]
-      }
 
 jobs:
   static-code-analysis:
