@@ -38,7 +38,7 @@ class Client:
         if not ping_interval:
             return
 
-        latency = 0
+        latency: float = 0
         while True:
             # When sleeping, take the latency of the last ping-pong round-trip
             # time into account.
@@ -118,8 +118,9 @@ class Backend:
         Called by SocketShark to shutdown the backend (close any open
         connections).
         """
-        self.server.close()
-        await self.server.wait_closed()
+        if self.server:
+            self.server.close()
+            await self.server.wait_closed()
 
     def start(self):
         """

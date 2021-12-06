@@ -1,5 +1,6 @@
 import asyncio
 import time
+from typing import Any, Dict, Optional
 
 from . import constants as c
 from .exceptions import EventError
@@ -12,7 +13,7 @@ def _get_options(data):
     """
     raw_options = data.get('options', {})
 
-    options = {
+    options: Dict[str, Any] = {
         'order': None,
         'order_key': None,
         'throttle': None,
@@ -48,10 +49,10 @@ class Subscription:
         self.session = session
         self.shark = session.shark
         self.name = data.get('subscription') or ''
+        self.service: Optional[str] = None
+        self.topic: Optional[str] = None
         if '.' in self.name:
             self.service, self.topic = self.name.split('.', 1)
-        else:
-            self.service = self.topic = None
         if self.service in config['SERVICES']:
             self.service_config = config['SERVICES'][self.service]
             self.extra_fields = self.service_config.get('extra_fields', [])

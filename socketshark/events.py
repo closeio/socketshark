@@ -1,3 +1,5 @@
+from typing import Optional
+
 from . import constants as c
 from .exceptions import EventError
 from .subscription import Subscription
@@ -16,18 +18,15 @@ class Event:
         if not isinstance(event, str) or len(event) > c.MAX_EVENT_LENGTH:
             return InvalidEvent(session)
 
-        cls = {
+        event_class = {
             'auth': AuthEvent,
             'message': MessageEvent,
             'subscribe': SubscribeEvent,
             'unsubscribe': UnsubscribeEvent,
             'ping': PingEvent,
-        }.get(event)
+        }.get(event, UnknownEvent)
 
-        if cls:
-            return cls(session, data)
-        else:
-            return UnknownEvent(session, data)
+        return event_class(session, data)
 
     def __init__(self, session, data):
         self.config = session.config
@@ -57,6 +56,9 @@ class Event:
             msg['data'] = data
         msg.update(extra_data)
         await self.session.send(msg)
+
+    async def process(self):
+        raise NotImplementedError
 
     async def full_process(self):
         """
@@ -189,10 +191,9 @@ class PingEvent(Event):
         # If the "ping" event included some "data", send the same data back
         # so that pings and their pongs can be tied together. However, only
         # accept string data and only up to 128 characters.
+        data: Optional[str] = None
         if isinstance(raw_data, str):
             data = raw_data[:128]
-        else:
-            data = None
 
         await self.send_pong(data)
         return True

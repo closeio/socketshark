@@ -2,6 +2,7 @@ import asyncio
 import json
 import time
 from collections import defaultdict
+from typing import Any, Optional
 
 
 class ServiceReceiver:
@@ -41,8 +42,9 @@ class ServiceReceiver:
         if not ping_interval or not ping_timeout:
             return
 
-        latency = 0
-        ping = wait = None
+        latency: float = 0
+        ping: Optional[Any] = None
+        wait: Optional[Any] = None
 
         try:
             while True:
@@ -60,7 +62,7 @@ class ServiceReceiver:
                     [ping, wait], return_when=asyncio.FIRST_COMPLETED
                 )
 
-                if ping in pending:
+                if ping and ping in pending:
                     # Ping timeout
                     ping.cancel()
                     self.shark.log.warn('redis ping timeout')

@@ -4,6 +4,9 @@ workflows:
   version: 2
   workflow:
     jobs:
+      - static-code-analysis:
+          context:
+            - docker-hub-creds-ro
       - test-3.6:
           context:
             - docker-hub-creds-ro
@@ -23,16 +26,33 @@ defaults: &defaults
   - run:
       name: Install dependencies
       command: |
-        sudo pip install -r requirements.txt
         sudo pip install -r requirements_tests.txt
-  - run:
-      name: Lint
-      command: flake8
   - run:
       name: Test
       command: PYTHONPATH=. pytest
 
 jobs:
+  static-code-analysis:
+    <<: *defaults
+    docker:
+    - image: circleci/python:3.8
+      auth:
+        username: $DOCKER_USER
+        password: $DOCKER_PASS
+    working_directory: ~/code
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: |
+            pip install -r requirements_lint.txt
+
+      - run:
+          name: Lint
+          when: always
+          command: |
+            lintlizard
+
   test-3.6:
     <<: *defaults
     docker:

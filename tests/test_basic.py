@@ -8,11 +8,15 @@ import aiohttp
 import aioredis
 import pytest
 from aioresponses import aioresponses
-from socketshark import SocketShark, config_defaults
-from socketshark import constants as c
-from socketshark import setup_logging
-from socketshark.session import Session
 from yarl import URL
+
+from socketshark import (
+    SocketShark,
+    config_defaults,
+    constants as c,
+    setup_logging,
+)
+from socketshark.session import Session
 
 LOCAL_REDIS_HOST = os.environ.get('LOCAL_REDIS_HOST')
 if not LOCAL_REDIS_HOST:

@@ -65,10 +65,11 @@ def _scrub_url(url):
 async def http_post(shark, url, data):
     log = shark.log.bind(url=_scrub_url(url))
     opts = shark.config['HTTP']
-    if opts.get('ssl_cafile'):
-        ssl_context = ssl.create_default_context(cafile=opts['ssl_cafile'])
-    else:
-        ssl_context = None
+    ssl_context = (
+        ssl.create_default_context(cafile=opts['ssl_cafile'])
+        if opts.get('ssl_cafile')
+        else None
+    )
     conn = aiohttp.TCPConnector(ssl_context=ssl_context)
     async with aiohttp.ClientSession(connector=conn) as session:
         wait = opts['wait']
