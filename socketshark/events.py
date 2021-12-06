@@ -38,10 +38,11 @@ class Event:
 
     async def send_error(self, error, data=None, extra_data=None):
         msg = {'event': self.event, 'status': 'error', 'error': error}
-        if extra_data is not None:
-            msg.update(extra_data)
+        msg.update(self.extra_data)
         if data is not None:
             msg['data'] = data
+        if extra_data is not None:
+            msg.update(extra_data)
         await self.session.send(msg)
 
     async def send_ok(self, data=None, extra_data=None):
@@ -49,10 +50,11 @@ class Event:
             'event': self.event,
             'status': 'ok',
         }
-        if extra_data is not None:
-            msg.update(extra_data)
+        msg.update(self.extra_data)
         if data is not None:
             msg['data'] = data
+        if extra_data is not None:
+            msg.update(extra_data)
         await self.session.send(msg)
 
     async def process(self):
