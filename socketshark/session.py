@@ -24,8 +24,6 @@ class Session:
         self.client = client
         self.log = self.shark.log.bind(session=id(self))
         self.trace_log = self.shark.trace_log.bind(session=id(self))
-        if info is None:
-            info = {}
         self.log.debug('new session', **info)
         self.subscriptions = {}  # dict of Subscription objects by name
         self.active = True

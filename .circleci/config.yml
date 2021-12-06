@@ -27,7 +27,6 @@ defaults: &defaults
       name: Install dependencies
       command: |
         sudo pip install -r requirements_tests.txt
-        sudo pip install -r requirements_lint.txt
   - run:
       name: Test
       command: PYTHONPATH=. pytest

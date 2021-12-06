@@ -109,8 +109,6 @@ class Subscription:
         error_message=None,
         raise_error=True,
     ):
-        extra_data = extra_data if extra_data is not None else {}
-
         if service_event in self.service_config:
             url = self.service_config[service_event]
             data = self.prepare_service_data()
