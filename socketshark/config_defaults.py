@@ -3,6 +3,7 @@ from typing import Any, Dict
 # Default settings that can be overridden.
 
 # Which WebSocket backend to use. Currently only "websockets" is supported.
+
 BACKEND = 'websockets'
 
 # Logging config

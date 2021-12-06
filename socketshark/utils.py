@@ -10,8 +10,12 @@ from . import constants as c
 
 def _get_rate_limit_wait(log, resp, opts):
     """
-    Return the number of seconds we should wait given a 429 HTTP response and
-    HTTP options.
+    Return the number of seconds we should wait if rate limited.
+
+    Args:
+        log: logger to log to
+        resp: a 429 HTTP response
+        opts: HTTP options
     """
     max_wait = 3600
 

@@ -122,8 +122,9 @@ class SocketShark:
 
     async def prepare(self):
         """
-        Prepare SocketShark (i.e. initialize Redis connection and
-        the receiver class).
+        Callback called by the backend to prepare SocketShark.
+
+        Initialize Redis connection and the receiver class.
         """
         redis_receiver = Receiver(loop=asyncio.get_event_loop())
         redis_settings = self.config['REDIS']

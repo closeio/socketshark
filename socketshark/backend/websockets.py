@@ -105,8 +105,7 @@ class Backend:
 
     def close(self):
         """
-        Called by SocketShark to indicate that the backend should stop
-        accepting connections.
+        Called by SocketShark to make the backend stop accepting connections.
         """
         # Stop the underlying asyncio.Server from accepting new connections.
         if self.server:
@@ -115,8 +114,7 @@ class Backend:
 
     async def shutdown(self):
         """
-        Called by SocketShark to shutdown the backend (close any open
-        connections).
+        Called by SocketShark to close any open connections.
         """
         if self.server:
             self.server.close()
@@ -124,8 +122,7 @@ class Backend:
 
     def start(self):
         """
-        Called by SocketShark to initialize the server and prepare & run
-        SocketShark.
+        Called by SocketShark to initialize the server, prepare & run.
         """
 
         async def serve(websocket, path):

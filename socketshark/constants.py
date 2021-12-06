@@ -1,4 +1,5 @@
 # Authentication method to use if "method" param is omitted.
+
 DEFAULT_AUTH_METHOD = 'ticket'
 
 # Max string length of the "event" parameter.

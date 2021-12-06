@@ -37,16 +37,15 @@ class Event:
         self.shark = session.shark
 
     async def send_error(self, error, data=None, extra_data=None):
-        extra_data = extra_data if extra_data is not None else {}
         msg = {'event': self.event, 'status': 'error', 'error': error}
         msg.update(self.extra_data)
         if data is not None:
             msg['data'] = data
-        msg.update(extra_data)
+        if extra_data is not None:
+            msg.update(extra_data)
         await self.session.send(msg)
 
     async def send_ok(self, data=None, extra_data=None):
-        extra_data = extra_data if extra_data is not None else {}
         msg = {
             'event': self.event,
             'status': 'ok',
@@ -54,7 +53,8 @@ class Event:
         msg.update(self.extra_data)
         if data is not None:
             msg['data'] = data
-        msg.update(extra_data)
+        if extra_data is not None:
+            msg.update(extra_data)
         await self.session.send(msg)
 
     async def process(self):
