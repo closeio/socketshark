@@ -8,7 +8,7 @@ colorama==0.3.7
 hiredis==0.2.0
 idna==2.5
 idna-ssl==1.1; python_version < '3.7'
-multidict==4.3.1
+multidict==5.2.0
 packaging==20.4
 pyparsing==2.2.0
 structlog==20.1.0
