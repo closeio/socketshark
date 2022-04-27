@@ -1,2 +1,2 @@
-lintlizard==0.15.0
+lintlizard==0.18.0
 click<8.1  # 8.1+ breaks black
