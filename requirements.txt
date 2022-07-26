@@ -10,7 +10,7 @@ idna==3.3
 idna-ssl==1.1; python_version < '3.7'
 multidict==5.2.0
 packaging==21.3
-pyparsing==2.2.0
+pyparsing==3.0.9
 structlog==20.1.0
 websockets==9.1
 yarl==1.7.2
