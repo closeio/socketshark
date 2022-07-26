@@ -5,7 +5,7 @@ updates:
   # Enable version updates for python
   - package-ecosystem: "pip"
     directory: "/"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 20
     schedule:
       interval: "daily"
     pull-request-branch-name:
