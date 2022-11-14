@@ -66,6 +66,16 @@ REDIS: Dict[str, Any] = {
     'ping_timeout': 5,
 }
 
+REDIS_ALT: Dict[str, Any] = {
+    'host': 'localhost',
+    'port': 6379,
+    'channel_prefix': 'alternate',
+    # How often to ping Redis in seconds (None to not ping).
+    'ping_interval': 10,
+    # Seconds after which we shut down after no ping response.
+    'ping_timeout': 5,
+}
+
 # Authentication
 AUTHENTICATION: Dict[str, Any] = {}
 

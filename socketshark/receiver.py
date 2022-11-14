@@ -10,7 +10,7 @@ class ServiceReceiver:
     Receives messages from services and forwards them to subscribing sessions.
     """
 
-    def __init__(self, shark, redis_receiver):
+    def __init__(self, shark):
         self.shark = shark
 
         self.subscriptions = set()
@@ -24,21 +24,24 @@ class ServiceReceiver:
         # {subscription: [sessions]}
         self.confirmed_subscriptions = defaultdict(set)
 
-        self.redis_settings = shark.config['REDIS']
-        self.redis_channel_prefix = self.redis_settings['channel_prefix']
-        self.redis = shark.redis
-        self.redis_receiver = redis_receiver
+        self.redis_connections = shark.redis_connections
 
         # We use a special channel to pass the stop message to the reader.
-        self._stop_channel = self.redis_receiver.channel('_internal')
+        self._stop_channel = self.redis_connections[0].redis_receiver.channel(
+            '_internal'
+        )
         self._stop = False  # Stop flag
 
-    def _channel(self, name):
-        return self.redis_channel_prefix + name
+    def _channel(self, redis_connection, name):
+        return redis_connection.channel_prefix + name
 
     async def ping_handler(self):
-        ping_interval = self.redis_settings['ping_interval']
-        ping_timeout = self.redis_settings['ping_timeout']
+        handlers = [self._ping_handler(c) for c in self.redis_connections]
+        await asyncio.gather(*handlers)
+
+    async def _ping_handler(self, redis_connection):
+        ping_interval = redis_connection.ping_interval
+        ping_timeout = redis_connection.ping_timeout
         if not ping_interval or not ping_timeout:
             return
 
@@ -55,7 +58,7 @@ class ServiceReceiver:
 
                 start_time = time.time()
 
-                ping = self.redis.ping()
+                ping = redis_connection.redis.ping()
                 wait = asyncio.ensure_future(asyncio.sleep(ping_timeout))
 
                 done, pending = await asyncio.wait(
@@ -66,6 +69,7 @@ class ServiceReceiver:
                     # Ping timeout
                     ping.cancel()
                     self.shark.log.warn('redis ping timeout')
+                    self._stop = True
                     break
 
                 latency = time.time() - start_time
@@ -79,29 +83,35 @@ class ServiceReceiver:
             if wait:
                 wait.cancel()
             if not self._stop:
-                self.shark.log.exception('unhandled exception in ping handler')
+                self.shark.log.debug('redis ping handler cancelled')
         except Exception:
             self.shark.log.exception('unhandled exception in ping handler')
+            self._stop = True
         finally:
-            await self.stop()
+            if self._stop:
+                await self.stop()
 
     async def reader(self, once=False):
         self._stop = False
         try:
             ping_handler = asyncio.ensure_future(self.ping_handler())
-            result = await self._reader(once=once)
+            tasks = [
+                self._reader(connection, once=once)
+                for connection in self.redis_connections
+            ]
+            result = await asyncio.gather(*tasks)
             ping_handler.cancel()
             return result
         except Exception:
             self.shark.log.exception('unhandled exception in receiver')
 
-    async def _reader(self, once=False):
-        prefix_length = len(self.redis_channel_prefix)
-        if once and not self.redis_receiver._queue.qsize():
+    async def _reader(self, connection, once=False):
+        prefix_length = len(connection.channel_prefix)
+        if once and not connection.redis_receiver._queue.qsize():
             return False
 
         while True:
-            data = await self.redis_receiver.get()
+            data = await connection.redis_receiver.get()
             channel, msg = data
             if channel == self._stop_channel:
                 break
@@ -126,15 +136,18 @@ class ServiceReceiver:
                 self.shark.log.exception('JSONDecodeError')
             except Exception:
                 self.shark.log.exception('unhandled exception in receiver')
-            if once and not self.redis_receiver._queue.qsize():
+            if once and not connection.redis_receiver._queue.qsize():
                 return True
 
     async def add_provisional_subscription(self, session, subscription):
         if subscription not in self.subscriptions:
             self.subscriptions.add(subscription)
-            await self.redis.subscribe(
-                self.redis_receiver.channel(self._channel(subscription))
-            )
+            for connection in self.redis_connections:
+                await connection.redis.subscribe(
+                    connection.redis_receiver.channel(
+                        self._channel(connection, subscription)
+                    )
+                )
         self.provisional_subscriptions[subscription].add(session)
 
     async def confirm_subscription(self, session, subscription):
@@ -164,8 +177,13 @@ class ServiceReceiver:
 
         if not conf_set and not prov_set:
             self.subscriptions.remove(subscription)
-            if not self.redis.closed:
-                await self.redis.unsubscribe(self._channel(subscription))
+            for connection in self.redis_connections:
+                if not connection.redis.closed:
+                    await connection.redis.unsubscribe(
+                        connection.redis_receiver.channel(
+                            self._channel(connection, subscription)
+                        )
+                    )
 
     async def stop(self):
         self._stop = True

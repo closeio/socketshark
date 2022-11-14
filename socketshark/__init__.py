@@ -9,11 +9,11 @@ import sys
 import aioredis
 import click
 import structlog
-from aioredis.pubsub import Receiver
 
 from . import config_defaults
 from .metrics import Metrics
 from .receiver import ServiceReceiver
+from .redis_connection import RedisConnection
 
 
 def setup_logging(log_config):
@@ -111,7 +111,8 @@ class SocketShark:
         self.metrics.set_ready(False)
 
     async def _redis_connection_handler(self):
-        await self.redis.wait_closed()
+        tasks = [c.redis.wait_closed() for c in self.redis_connections]
+        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
 
         self.log.error('redis unexpectedly closed')
         self.metrics.set_ready(False)
@@ -126,35 +127,32 @@ class SocketShark:
 
         Initialize Redis connection and the receiver class.
         """
-        redis_receiver = Receiver(loop=asyncio.get_event_loop())
-        redis_settings = self.config['REDIS']
+        redis_settings = [self.config['REDIS']]
+        if self.config.get('REDIS_ALT'):
+            redis_settings.append(self.config['REDIS_ALT'])
+        self.redis_connections = []
         try:
-            self.redis = await aioredis.create_redis(
-                (redis_settings['host'], redis_settings['port']),
-                db=redis_settings.get('db', 0),
-            )
+            for settings in redis_settings:
+                self.redis_connections.append(
+                    await RedisConnection.create(settings)
+                )
         except (OSError, aioredis.RedisError):
             self.log.exception('could not connect to redis')
             raise
-
-        # Some features (e.g. pinging) don't work on old Redis versions.
-        info = await self.redis.info('server')
-        version_info = info['server']['redis_version'].split('.')
-        major, minor = int(version_info[0]), int(version_info[1])
-        if not (major > 3 or major == 3 and minor >= 2):
-            msg = 'Redis version must be at least 3.2'
-            self.log.exception(msg, version_info=version_info)
-            raise Exception(msg)
+        except Exception:
+            self.log.exception('unexpected error')
+            raise
 
         self._redis_connection_handler_task = asyncio.ensure_future(
             self._redis_connection_handler()
         )
 
-        self.service_receiver = ServiceReceiver(self, redis_receiver)
+        self.service_receiver = ServiceReceiver(self)
 
     def _cleanup(self):
         self._redis_connection_handler_task.cancel()
-        self.redis.close()
+        for c in self.redis_connections:
+            c.redis.close()
 
     async def shutdown(self):
         """
