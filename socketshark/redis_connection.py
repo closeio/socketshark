@@ -32,6 +32,8 @@ class RedisConnection:
         if not (major > 3 or major == 3 and minor >= 2):
             msg = 'Redis version must be at least 3.2'
             raise RedisConnectionError(msg)
+        # We use a special channel to pass the stop message to the reader.
+        self.stop_channel = self.redis_receiver.channel('_internal')
 
     @classmethod
     async def create(cls, redis_settings):

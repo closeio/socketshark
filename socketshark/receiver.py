@@ -25,11 +25,6 @@ class ServiceReceiver:
         self.confirmed_subscriptions = defaultdict(set)
 
         self.redis_connections = shark.redis_connections
-
-        # We use a special channel to pass the stop message to the reader.
-        self._stop_channel = self.redis_connections[0].redis_receiver.channel(
-            '_internal'
-        )
         self._stop = False  # Stop flag
 
     def _channel(self, redis_connection, name):
@@ -113,7 +108,7 @@ class ServiceReceiver:
         while True:
             data = await connection.redis_receiver.get()
             channel, msg = data
-            if channel == self._stop_channel:
+            if channel == connection.stop_channel:
                 break
             subscription = channel.name.decode()[prefix_length:]
             try:
@@ -187,4 +182,5 @@ class ServiceReceiver:
 
     async def stop(self):
         self._stop = True
-        self._stop_channel.put_nowait(None)
+        for c in self.redis_connections:
+            c.stop_channel.put_nowait(None)

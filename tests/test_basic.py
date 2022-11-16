@@ -1788,7 +1788,7 @@ class TestSession:
 
         dummy_ping.n_pings = 0
 
-        shark = SocketShark(TEST_CONFIG)
+        shark = SocketShark(TEST_CONFIG_WITH_ALT_REDIS)
         await shark.prepare()
         client = MockClient(shark)
         session = client.session
@@ -1810,7 +1810,7 @@ class TestSession:
             task = asyncio.ensure_future(shark.run_service_receiver())
             await task  # Exits due to the timeout
 
-        assert dummy_ping.n_pings == 2
+        assert dummy_ping.n_pings == 3
 
         await shark.shutdown()
 
