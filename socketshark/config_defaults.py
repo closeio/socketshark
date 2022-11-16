@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 # Default settings that can be overridden.
 
@@ -66,15 +66,9 @@ REDIS: Dict[str, Any] = {
     'ping_timeout': 5,
 }
 
-REDIS_ALT: Dict[str, Any] = {
-    'host': 'localhost',
-    'port': 6379,
-    'channel_prefix': 'alternate',
-    # How often to ping Redis in seconds (None to not ping).
-    'ping_interval': 10,
-    # Seconds after which we shut down after no ping response.
-    'ping_timeout': 5,
-}
+# Alternative Redis configuration. Useful for redundancy or migration.
+# If set, every topic will subscribe to both Redis instances.
+REDIS_ALT: Optional[Dict[str, Any]] = None
 
 # Authentication
 AUTHENTICATION: Dict[str, Any] = {}
