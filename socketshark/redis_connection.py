@@ -3,6 +3,8 @@ import asyncio
 import aioredis
 from aioredis.pubsub import Receiver
 
+from .exceptions import RedisConnectionError
+
 
 class RedisConnection:
     """
@@ -29,7 +31,7 @@ class RedisConnection:
         major, minor = int(version_info[0]), int(version_info[1])
         if not (major > 3 or major == 3 and minor >= 2):
             msg = 'Redis version must be at least 3.2'
-            raise Exception(msg)
+            raise RedisConnectionError(msg)
 
     @classmethod
     async def create(cls, redis_settings):

@@ -11,6 +11,7 @@ import click
 import structlog
 
 from . import config_defaults
+from .exceptions import RedisConnectionError
 from .metrics import Metrics
 from .receiver import ServiceReceiver
 from .redis_connection import RedisConnection
@@ -81,6 +82,7 @@ class SocketShark:
         self.metrics = Metrics(self)
         self.metrics.initialize()
         self.metrics.set_ready(False)
+        self.redis_connections = []
 
     def _init_logging(self):
         logger_name = self.config['LOG']['logger_name']
@@ -130,7 +132,6 @@ class SocketShark:
         redis_settings = [self.config['REDIS']]
         if self.config.get('REDIS_ALT'):
             redis_settings.append(self.config['REDIS_ALT'])
-        self.redis_connections = []
         try:
             for settings in redis_settings:
                 self.redis_connections.append(
@@ -139,7 +140,7 @@ class SocketShark:
         except (OSError, aioredis.RedisError):
             self.log.exception('could not connect to redis')
             raise
-        except Exception:
+        except RedisConnectionError:
             self.log.exception('unexpected error')
             raise
 
