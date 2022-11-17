@@ -11,7 +11,6 @@ import click
 import structlog
 
 from . import config_defaults
-from .exceptions import RedisConnectionError
 from .metrics import Metrics
 from .receiver import ServiceReceiver
 from .redis_connection import RedisConnection
@@ -139,9 +138,6 @@ class SocketShark:
                 )
         except (OSError, aioredis.RedisError):
             self.log.exception('could not connect to redis')
-            raise
-        except RedisConnectionError:
-            self.log.exception('unexpected error')
             raise
 
         self._redis_connection_handler_task = asyncio.ensure_future(
