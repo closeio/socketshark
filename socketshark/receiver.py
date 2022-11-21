@@ -72,7 +72,7 @@ class ServiceReceiver:
                     'redis pong', latency=round(latency, 3)
                 )
 
-        except asyncio.CancelledError:  # Cancelled by stop()
+        except asyncio.CancelledError:  # Cancelled by ping_handler.cancel()
             if ping:
                 ping.cancel()
             if wait:
