@@ -66,8 +66,12 @@ REDIS: Dict[str, Any] = {
     'ping_timeout': 5,
 }
 
-# Alternative Redis configuration. Useful for redundancy or migration.
+# Alternative Redis configuration. Useful for migration.
 # If set, every topic will subscribe to both Redis instances.
+# A typical migration scenario would be to set up a new Redis instance
+# and set as REDIS, keeping the old Redis instance as REDIS_ALT.
+# Then update any publishers to publish to the new instance.
+# Once all publishers have been updated, set REDIS_ALT to None.
 REDIS_ALT: Optional[Dict[str, Any]] = None
 
 # Authentication

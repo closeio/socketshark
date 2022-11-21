@@ -91,7 +91,7 @@ class ServiceReceiver:
         try:
             ping_handler = asyncio.ensure_future(self.ping_handler())
             tasks = [
-                self._reader(connection, once=once)
+                self._reader_for_connection(connection, once=once)
                 for connection in self.redis_connections
             ]
             result = await asyncio.gather(*tasks)
@@ -100,7 +100,7 @@ class ServiceReceiver:
         except Exception:
             self.shark.log.exception('unhandled exception in receiver')
 
-    async def _reader(self, connection, once=False):
+    async def _reader_for_connection(self, connection, once=False):
         prefix_length = len(connection.channel_prefix)
         if once and not connection.redis_receiver._queue.qsize():
             return False
