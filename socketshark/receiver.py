@@ -94,10 +94,11 @@ class ServiceReceiver:
                 for connection in self.redis_connections
             ]
             result = await asyncio.gather(*tasks)
-            ping_handler.cancel()
             return result
         except Exception:
             self.shark.log.exception('unhandled exception in receiver')
+        finally:
+            ping_handler.cancel()
 
     async def _reader_for_connection(self, connection, once=False):
         prefix_length = len(connection.channel_prefix)
