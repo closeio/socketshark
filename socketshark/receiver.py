@@ -77,8 +77,7 @@ class ServiceReceiver:
                 ping.cancel()
             if wait:
                 wait.cancel()
-            if not self._stop:
-                self.shark.log.debug('redis ping handler cancelled')
+            self.shark.log.debug('redis ping handler cancelled')
         except Exception:
             self.shark.log.exception('unhandled exception in ping handler')
             self._stop = True
