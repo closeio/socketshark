@@ -112,6 +112,8 @@ class SocketShark:
         self.metrics.set_ready(False)
 
     async def _redis_connection_handler(self):
+        """
+        """
         tasks = [c.redis.wait_closed() for c in self.redis_connections]
         await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
 
@@ -132,10 +134,9 @@ class SocketShark:
         if self.config.get('REDIS_ALT'):
             redis_settings.append(self.config['REDIS_ALT'])
         try:
-            for settings in redis_settings:
-                self.redis_connections.append(
-                    await RedisConnection.create(settings)
-                )
+            self.redis_connections = await asyncio.gather(
+                *[RedisConnection.create(s) for s in redis_settings]
+            )
         except (OSError, aioredis.RedisError):
             self.log.exception('could not connect to redis')
             raise
