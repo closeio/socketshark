@@ -6,3 +6,7 @@ class EventError(Exception):
         super().__init__(error)
         self.error = error
         self.data = data
+
+
+class RedisConnectionError(Exception):
+    pass

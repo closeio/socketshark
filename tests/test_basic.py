@@ -99,6 +99,10 @@ TEST_CONFIG = {
     },
 }
 
+TEST_CONFIG_WITH_ALT_REDIS = TEST_CONFIG.copy()
+TEST_CONFIG_WITH_ALT_REDIS['REDIS_ALT'] = TEST_CONFIG['REDIS'].copy()
+TEST_CONFIG_WITH_ALT_REDIS['REDIS_ALT']['channel_prefix'] = 'alt:'
+
 setup_logging(TEST_CONFIG['LOG'])
 
 
@@ -1784,7 +1788,7 @@ class TestSession:
 
         dummy_ping.n_pings = 0
 
-        shark = SocketShark(TEST_CONFIG)
+        shark = SocketShark(TEST_CONFIG_WITH_ALT_REDIS)
         await shark.prepare()
         client = MockClient(shark)
         session = client.session
@@ -1806,7 +1810,7 @@ class TestSession:
             task = asyncio.ensure_future(shark.run_service_receiver())
             await task  # Exits due to the timeout
 
-        assert dummy_ping.n_pings == 2
+        assert dummy_ping.n_pings == 3
 
         await shark.shutdown()
 
@@ -2636,7 +2640,7 @@ class TestWebsocket:
                 'status': 'ok',
             }
 
-            shark.redis.close()
+            shark.redis_connections[0].redis.close()
 
             msg = await ws1.receive()
             assert msg.type == aiohttp.WSMsgType.CLOSE
@@ -2649,3 +2653,81 @@ class TestWebsocket:
         shark = SocketShark(TEST_CONFIG)
         asyncio.ensure_future(task())
         shark.start()
+
+
+class TestRedisConnection:
+    """
+    Test throttling messages.
+    """
+
+    @pytest.mark.asyncio
+    async def test_multiple_connections(self):
+        shark = SocketShark(TEST_CONFIG_WITH_ALT_REDIS)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+        subscription = 'simple.topic'
+
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': subscription,
+            }
+        )
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'subscription': subscription,
+            'status': 'ok',
+        }
+
+        redis_settings = TEST_CONFIG_WITH_ALT_REDIS['REDIS']
+        redis = await aioredis.create_redis(
+            (redis_settings['host'], redis_settings['port'])
+        )
+        redis_topic = redis_settings['channel_prefix'] + subscription
+
+        alt_redis_settings = TEST_CONFIG_WITH_ALT_REDIS['REDIS']
+        alt_redis = await aioredis.create_redis(
+            (alt_redis_settings['host'], alt_redis_settings['port'])
+        )
+        alt_redis_topic = alt_redis_settings['channel_prefix'] + subscription
+
+        await redis.publish_json(
+            redis_topic,
+            {
+                'subscription': subscription,
+                'data': {'foo': 'one'},
+            },
+        )
+
+        await alt_redis.publish_json(
+            alt_redis_topic,
+            {
+                'subscription': subscription,
+                'data': {'bar': 'one'},
+            },
+        )
+
+        # Wait for Redis to propagate the messages
+        await asyncio.sleep(0.1)
+
+        has_messages = await shark.run_service_receiver(once=True)
+        assert has_messages
+
+        assert client.log == [
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'foo': 'one'},
+            },
+            {
+                'event': 'message',
+                'subscription': subscription,
+                'data': {'bar': 'one'},
+            },
+        ]
+
+        redis.close()
+        alt_redis.close()
+
+        await shark.shutdown()
