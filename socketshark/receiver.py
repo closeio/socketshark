@@ -137,12 +137,16 @@ class ServiceReceiver:
     async def add_provisional_subscription(self, session, subscription):
         if subscription not in self.subscriptions:
             self.subscriptions.add(subscription)
-            for connection in self.redis_connections:
-                await connection.redis.subscribe(
-                    connection.redis_receiver.channel(
-                        self._channel(connection, subscription)
+            await asyncio.gather(
+                *[
+                    c.redis.subscribe(
+                        c.redis_receiver.channel(
+                            self._channel(c, subscription)
+                        )
                     )
-                )
+                    for c in self.redis_connections
+                ]
+            )
         self.provisional_subscriptions[subscription].add(session)
 
     async def confirm_subscription(self, session, subscription):
@@ -172,13 +176,17 @@ class ServiceReceiver:
 
         if not conf_set and not prov_set:
             self.subscriptions.remove(subscription)
-            for connection in self.redis_connections:
-                if not connection.redis.closed:
-                    await connection.redis.unsubscribe(
-                        connection.redis_receiver.channel(
-                            self._channel(connection, subscription)
+            await asyncio.gather(
+                *[
+                    c.redis.unsubscribe(
+                        c.redis_receiver.channel(
+                            self._channel(c, subscription)
                         )
                     )
+                    for c in self.redis_connections
+                    if not c.redis.closed
+                ]
+            )
 
     async def stop(self):
         self._stop = True
