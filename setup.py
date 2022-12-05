@@ -21,7 +21,7 @@ tests_require = install_requires + [
 
 setup(
     name='socketshark',
-    version='0.2.2',
+    version='0.3.0',
     url='http://github.com/closeio/socketshark',
     license='MIT',
     description='WebSocket message router',
