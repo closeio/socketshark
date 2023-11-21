@@ -13,4 +13,4 @@ packaging==21.3
 pyparsing==2.2.0
 structlog==20.1.0
 websockets==9.1
-yarl==1.7.2
+yarl==1.9.3
