@@ -8,3 +8,4 @@ dist/
 .tox/
 __pycache__
 venv
+.venv
