@@ -30,6 +30,9 @@ setup(
     tests_require=tests_require,
     platforms='any',
     install_requires=install_requires,
+    extras_require={
+        'prometheus': 'prometheus-async',
+    },
     classifiers=[
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
