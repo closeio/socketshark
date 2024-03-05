@@ -8,7 +8,7 @@ install_requires = [
     'aiohttp',
     'aioredis',
     'click',
-    'structlog[dev]',
+    'structlog',
     'websockets',
 ]
 
