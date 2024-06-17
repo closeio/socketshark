@@ -173,6 +173,35 @@ class Subscription:
                 )
                 await self.self_unsubscribe(e.error)
 
+    async def send_heartbeat(self):
+        await self.perform_service_request('on_heartbeat')
+
+    async def periodic_heartbeat(self):
+        period = self.service_config['heartbeat_period']
+        self.session.trace_log.debug(
+            'initializing periodic heartbeat task',
+            subscription=self.name,
+            period=period,
+        )
+        while True:
+            await asyncio.sleep(period)
+            try:
+                self.session.log.debug(
+                    'sending heartbeat', subscription=self.name
+                )
+                await self.send_heartbeat()
+                self.session.log.debug(
+                    'heartbeat sent', subscription=self.name
+                )
+            except EventError as e:
+                # we just log heartbeat errors as heartbeats are not
+                # critically important to the subscription
+                self.session.log.warning(
+                    'error sending heartbeat to service',
+                    subscription=self.name,
+                    error=e.error,
+                )
+
     async def before_subscribe(self):
         return await self.perform_service_request('before_subscribe')
 
@@ -383,6 +412,14 @@ class Subscription:
         if 'authorization_renewal_period' in self.service_config:
             self._periodic_authorizer_task = asyncio.ensure_future(
                 self.periodic_authorizer()
+            )
+
+        if (
+            'heartbeat_period' in self.service_config
+            and 'on_heartbeat' in self.service_config
+        ):
+            self._periodic_heartbeat_task = asyncio.ensure_future(
+                self.periodic_heartbeat()
             )
 
         await self.on_subscribe()
