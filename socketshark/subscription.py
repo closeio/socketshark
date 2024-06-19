@@ -83,6 +83,7 @@ class Subscription:
         self.throttle_state = {}
 
         self._periodic_authorizer_task = None
+        self._periodic_heartbeat_task = None
 
     def validate(self):
         if not self.service or not self.topic:
@@ -450,6 +451,9 @@ class Subscription:
 
         if self._periodic_authorizer_task:
             self._periodic_authorizer_task.cancel()
+
+        if self._periodic_heartbeat_task:
+            self._periodic_heartbeat_task.cancel()
 
     async def unsubscribe(self, event):
         """
