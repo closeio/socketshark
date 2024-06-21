@@ -60,5 +60,9 @@ SERVICES = {
         "on_unsubscribe": 'http://my-service/on_unsubscribe/',
         # URL which is called when a message is passed to this service.
         "on_message": 'http://my-service/on_message/',
+        # If set, the service will send a heartbeat message to the URL defined
+        # in 'on_heartbeat' every 'heartbeat_period' seconds.
+        "heartbeat_period": 30,
+        "on_heartbeat": 'http://my-service/on_heartbeat/',
     },
 }

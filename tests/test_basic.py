@@ -81,6 +81,11 @@ TEST_CONFIG = {
             'on_subscribe': 'http://my-service/on_subscribe/',
             'on_authorization_change': 'http://my-service/on_auth_change/',
         },
+        'periodic_heartbeat': {
+            'require_authentication': False,
+            'on_heartbeat': 'http://my-service/heartbeat/',
+            'heartbeat_period': 0.2,
+        },
         'complex': {
             'require_authentication': True,
             'authorizer': 'http://auth-service/auth/authorizer/',
@@ -1073,6 +1078,39 @@ class TestSession:
             }
 
             await shark.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_subscription_periodic_heartbeat(self):
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+
+        with aioresponses() as mock:
+            # Mock responses
+            heartbeat_url = 'http://my-service/heartbeat/'
+
+            mock.post(
+                heartbeat_url,
+                payload={
+                    'status': 'ok',
+                },
+            )
+
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': 'periodic_heartbeat.topic',
+                }
+            )
+
+            mock.assert_not_called()
+
+            await asyncio.sleep(0.4)
+
+            mock.assert_called_once()
+
+        await shark.shutdown()
 
     @pytest.mark.asyncio
     async def test_subscription_complex(self):
