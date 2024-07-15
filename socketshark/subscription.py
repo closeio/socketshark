@@ -1,4 +1,5 @@
 import asyncio
+import random
 import time
 from typing import Any, Dict, Optional
 
@@ -184,8 +185,10 @@ class Subscription:
             subscription=self.name,
             period=period,
         )
+        # Add some randomness to the first heartbeat period to avoid all
+        # subscriptions sending heartbeats at the same time upon redeploy.
+        await asyncio.sleep(period * random.random())
         while True:
-            await asyncio.sleep(period)
             try:
                 self.session.log.debug(
                     'sending heartbeat', subscription=self.name
@@ -202,6 +205,7 @@ class Subscription:
                     subscription=self.name,
                     error=e.error,
                 )
+            await asyncio.sleep(period)
 
     async def before_subscribe(self):
         return await self.perform_service_request('before_subscribe')
