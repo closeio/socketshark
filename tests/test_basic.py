@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import random
 import time
 from unittest.mock import patch
 
@@ -1097,6 +1098,7 @@ class TestSession:
                 },
             )
 
+            random.seed(1)  # due to a random sleep at the beginning
             await session.on_client_event(
                 {
                     'event': 'subscribe',
@@ -1105,10 +1107,10 @@ class TestSession:
             )
 
             mock.assert_not_called()
-
-            await asyncio.sleep(0.4)
-
+            await asyncio.sleep(0.2)
             mock.assert_called_once()
+            await asyncio.sleep(0.2)
+            assert len(list(mock.requests.values())[0]) == 2
 
         await shark.shutdown()
 
