@@ -13,4 +13,4 @@ propcache==0.2.0
 six==1.16.0
 structlog==20.1.0
 websockets==12.0
-yarl==1.14.0
+yarl==1.18.0
