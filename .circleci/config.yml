@@ -16,6 +16,9 @@ workflows:
       - test-3.11:
           context:
             - docker-hub-creds-ro
+      - test-3.12:
+          context:
+            - docker-hub-creds-ro
 
 defaults: &defaults
   working_directory: ~/code
@@ -79,6 +82,17 @@ jobs:
     <<: *defaults
     docker:
       - image: cimg/python:3.11
+        auth:
+          username: $DOCKER_USER
+          password: $DOCKER_PASS
+      - image: redis:3.2.12-alpine
+        auth:
+          username: $DOCKER_USER
+          password: $DOCKER_PASS
+  test-3.12:
+    <<: *defaults
+    docker:
+      - image: cimg/python:3.12
         auth:
           username: $DOCKER_USER
           password: $DOCKER_PASS
