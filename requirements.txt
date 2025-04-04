@@ -8,7 +8,7 @@ click==8.0.4
 frozenlist==1.4.0
 hiredis==2.1.1
 idna==3.7
-multidict==5.2.0
+multidict==6.3.2
 propcache==0.2.0
 six==1.17.0
 structlog==20.1.0
