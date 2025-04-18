@@ -5,7 +5,7 @@ aiosignal==1.2.0
 async-timeout==4.0.2
 attrs==24.2.0
 click==8.0.4
-frozenlist==1.4.0
+frozenlist==1.6.0
 hiredis==2.1.1
 idna==3.7
 multidict==5.2.0
