@@ -1,4 +1,4 @@
 -r requirements.txt
 prometheus-async==17.3.0
-prometheus-client==0.0.19
+prometheus-client==0.22.1
 wrapt==1.16.0
