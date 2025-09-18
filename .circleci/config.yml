@@ -7,9 +7,6 @@ workflows:
       - static-code-analysis:
           context:
             - docker-hub-creds-ro
-      - test-3.8:
-          context:
-            - docker-hub-creds-ro
       - test-3.9:
           context:
             - docker-hub-creds-ro
@@ -38,7 +35,7 @@ jobs:
   static-code-analysis:
     <<: *defaults
     docker:
-      - image: cimg/python:3.8
+      - image: cimg/python:3.12
         auth:
           username: $DOCKER_USER
           password: $DOCKER_PASS
@@ -56,17 +53,6 @@ jobs:
           command: |
             lintlizard
 
-  test-3.8:
-    <<: *defaults
-    docker:
-      - image: cimg/python:3.8
-        auth:
-          username: $DOCKER_USER
-          password: $DOCKER_PASS
-      - image: redis:3.2.12-alpine
-        auth:
-          username: $DOCKER_USER
-          password: $DOCKER_PASS
   test-3.9:
     <<: *defaults
     docker:

@@ -127,10 +127,9 @@ class SubscriptionEvent(Event):
         super().__init__(session, data)
         subscription_name = data.get('subscription') or None
         self.subscription_name = subscription_name
-        if subscription_name in self.session.subscriptions:
-            self.subscription = self.session.subscriptions[subscription_name]
-        else:
-            self.subscription = Subscription(self.config, session, data)
+        self.subscription = self.session.subscriptions.get(
+            subscription_name, Subscription(self.config, session, data)
+        )
         self.extra_data = self.subscription.extra_data
 
     async def send_error(self, error, data=None):
