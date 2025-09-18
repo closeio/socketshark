@@ -61,7 +61,7 @@ def _scrub_url(url):
         # so can't easily use _replace to get rid of password
         # and then call urlunsplit to reconstruct url.
         _, _, hostinfo = url_parts.netloc.rpartition('@')
-        scrubbed_netloc = f'*****:*****@{hostinfo}'
+        scrubbed_netloc = f'*****:*****@{hostinfo}'  # noqa: E231
         scrubbed_url_parts = url_parts._replace(netloc=scrubbed_netloc)
         return urlunsplit(scrubbed_url_parts)
 
