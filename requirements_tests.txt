@@ -6,5 +6,5 @@ iniconfig==2.0.0
 pluggy==1.5.0
 pytest==8.0.2
 pytest-asyncio==0.21.1
-tomli==2.0.2
+tomli==2.3.0
 typing-extensions~=4.15.0
