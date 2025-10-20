@@ -152,13 +152,16 @@ class Subscription:
 
     async def periodic_authorizer(self):
         period = self.service_config['authorization_renewal_period']
+        jitter = self.service_config.get('authorization_renewal_jitter', 0)
         self.session.trace_log.debug(
             'initializing periodic authorizer',
             subscription=self.name,
             period=period,
+            jitter=jitter,
         )
         while True:
-            await asyncio.sleep(period)
+            sleep_duration = period - (random.random() * jitter)
+            await asyncio.sleep(sleep_duration)
             try:
                 self.session.log.debug(
                     'verifying authorization', subscription=self.name

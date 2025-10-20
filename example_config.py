@@ -42,6 +42,10 @@ SERVICES = {
         # Fields returned by the authorizer callback that are passed to all
         # subsequent service callbacks.
         'authorizer_fields': ['capabilities'],
+        # Periodically reauthorize subscriptions and add some jitter to avoid
+        # thundering herds.
+        'authorization_renewal_period': 300,
+        'authorization_renewal_jitter': 30,
         # If this service requires extra fields to fulfill a subscription,
         # you may provide them here. They are passed to all URL callbacks.
         'extra_fields': ['organization_id'],
