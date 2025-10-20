@@ -428,6 +428,11 @@ e.g.:
     "error": "Unauthorized."
   }
 
+
+To avoid a thundering herd problem where a lot of authorizations happened at
+the same time *and they continue renewing the authorization at the same time,
+too*, add ``authorization_renewal_jitter`` as a number of seconds.
+
 Before subscribe
 ~~~~~~~~~~~~~~~~
 
