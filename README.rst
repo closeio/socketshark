@@ -431,7 +431,10 @@ e.g.:
 
 To avoid a thundering herd problem where a lot of authorizations happened at
 the same time *and they continue renewing the authorization at the same time,
-too*, add ``authorization_renewal_jitter`` as a number of seconds.
+too*, add ``authorization_renewal_jitter`` as a number of seconds. This will
+schedule the upcoming authorization renewal for
+``authorization_renewal_period`` seconds from now *minus* anywhere between 0
+and ``authorization_renewal_jitter`` seconds.
 
 Before subscribe
 ~~~~~~~~~~~~~~~~

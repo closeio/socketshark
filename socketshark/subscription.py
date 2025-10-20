@@ -160,7 +160,7 @@ class Subscription:
             jitter=jitter,
         )
         while True:
-            sleep_duration = period + (random.random() * jitter)
+            sleep_duration = period - (random.random() * jitter)
             await asyncio.sleep(sleep_duration)
             try:
                 self.session.log.debug(
