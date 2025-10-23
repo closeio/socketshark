@@ -52,7 +52,8 @@ HTTP: Dict[str, Any] = {
     'wait': 3,
     # If we encounter HTTP 429, wait for the amount of seconds specified in
     # the following header (fall back to the 'wait' value if it doesn't exist).
-    'rate_limit_reset_header_name': 'X-Rate-Limit-Reset',
+    'rate_limit_reset_header_name': 'X-Rate-Limit-Reset',  # Deprecated, use rate_limit_reset_header_names instead.
+    'rate_limit_reset_header_names': [],  # List of header names to check for the rate limit reset time.
 }
 
 # Redis options

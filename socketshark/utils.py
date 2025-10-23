@@ -21,9 +21,15 @@ def _get_rate_limit_wait(log, resp, opts):
 
     wait = opts['wait']
 
-    header_name = opts['rate_limit_reset_header_name']
-    if header_name and header_name in resp.headers:
-        header_value = resp.headers[header_name]
+    header_names = opts['rate_limit_reset_header_names'] or [
+        opts['rate_limit_reset_header_name']
+    ]
+    header_value = None
+    for header_name in header_names:
+        if header_name in resp.headers:
+            header_value = resp.headers[header_name]
+            break
+    if header_value:
         try:
             new_wait = float(header_value)
             # Make sure we have a valid value (not negative, NaN, or Inf)
