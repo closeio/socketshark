@@ -54,6 +54,10 @@ def _get_rate_limit_wait(log, resp, opts):
                 name=header_name,
                 value=header_value,
             )
+    else:
+        log.warn(
+            'got a 429 but no rate limit reset header found in response',
+        )
     return wait
 
 
