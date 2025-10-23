@@ -1855,13 +1855,33 @@ class TestSession:
         await shark.shutdown()
 
     @pytest.mark.asyncio
-    async def test_rate_limit(self):
+    @pytest.mark.parametrize(
+        'response_header_name, config_header_names, config_header_name',
+        (
+            (
+                'X-Rate-Limit-Reset',
+                ['X-Rate-Limit-Reset', 'Retry-After'],
+                None,
+            ),
+            ('Retry-After', ['X-Rate-Limit-Reset', 'Retry-After'], None),
+            ('X-Rate-Limit-Reset', [], 'X-Rate-Limit-Reset'),
+        ),
+    )
+    async def test_rate_limit(
+        self, response_header_name, config_header_names, config_header_name
+    ):
         """
         Make sure SocketShark retries 429 responses appropriately.
         """
         http_retry_config = TEST_CONFIG.copy()
         http_retry_config['HTTP']['tries'] = 2
         http_retry_config['HTTP']['wait'] = 1
+        http_retry_config['HTTP'][
+            'rate_limit_reset_header_names'
+        ] = config_header_names
+        http_retry_config['HTTP'][
+            'rate_limit_reset_header_name'
+        ] = config_header_name
         shark = SocketShark(http_retry_config)
         await shark.prepare()
         client = MockClient(shark)
@@ -1876,7 +1896,7 @@ class TestSession:
                 conf['before_subscribe'],
                 status=429,
                 headers={
-                    'X-Rate-Limit-Reset': '0.2',
+                    response_header_name: '0.2',
                 },
             )
             mock.post(
