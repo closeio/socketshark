@@ -82,6 +82,7 @@ class SocketShark:
         self.metrics.initialize()
         self.metrics.set_ready(False)
         self.redis_connections = []
+        self.redis_control = None
 
     def _init_logging(self):
         logger_name = self.config['LOG']['logger_name']
@@ -142,6 +143,10 @@ class SocketShark:
             self.redis_connections = await asyncio.gather(
                 *[RedisConnection.create(s) for s in redis_settings]
             )
+            self.redis_control = await aioredis.create_redis(
+                (self.config['REDIS']['host'], self.config['REDIS']['port']),
+                db=self.config['REDIS'].get('db', 0),
+            )
         except (OSError, aioredis.RedisError):
             self.log.exception('could not connect to redis')
             raise
@@ -156,6 +161,8 @@ class SocketShark:
         self._redis_connection_handler_task.cancel()
         for c in self.redis_connections:
             c.redis.close()
+        if self.redis_control:
+            self.redis_control.close()
 
     async def shutdown(self):
         """

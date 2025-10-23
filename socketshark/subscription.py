@@ -128,6 +128,20 @@ class Subscription:
         return {'status': 'ok'}
 
     async def authorize_subscription(self):
+        # Hack: conditionally disable DMSv1
+        disable_dmsv1 = (
+            await self.shark.redis_control.get('disable_dmsv1') == b'true'
+        )
+        if (
+            disable_dmsv1
+            and self.service == 'dms'
+            and self.topic
+            and len(self.topic) > 40
+        ):
+            raise EventError(
+                c.ERR_SERVICE_UNAVAILABLE, data={"reason": "DMSv1 is disabled"}
+            )
+
         data = await self.perform_service_request(
             'authorizer', error_message=c.ERR_UNAUTHORIZED
         )

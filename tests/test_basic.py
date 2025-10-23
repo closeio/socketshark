@@ -69,6 +69,11 @@ TEST_CONFIG = {
             'authorizer': 'http://auth-service/auth/authorizer/',
             'extra_fields': ['extra'],
         },
+        'dms': {
+            'require_authentication': True,
+            'authorizer': 'http://auth-service/auth/authorizer/',
+            'extra_fields': ['extra'],
+        },
         'periodic_authorizer': {
             'require_authentication': True,
             'authorizer': 'http://auth-service/auth/authorizer/',
@@ -716,6 +721,64 @@ class TestSession:
                 'data': {'arrives': True},
             },
         ]
+
+        await shark.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_subscription_dmsv1(self):
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+
+        await self._auth_session(session)
+
+        with aioresponses() as mock:
+            # Mock authorizer
+            authorizer_url = 'http://auth-service/auth/authorizer/'
+
+            await shark.redis_control.set('disable_dmsv1', b'false')
+            mock.post(
+                authorizer_url,
+                payload={
+                    'status': 'ok',
+                },
+            )
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': 'dms.99b97d71-454b-0d72-f069-eaede0d688cd-6d839fd0-770a-885a-aaa3-1a20cc77cd1c',
+                }
+            )
+            assert client.log.pop() == {
+                'event': 'subscribe',
+                'subscription': 'dms.99b97d71-454b-0d72-f069-eaede0d688cd-6d839fd0-770a-885a-aaa3-1a20cc77cd1c',
+                'status': 'ok',
+            }
+
+            await shark.redis_control.set('disable_dmsv1', b'true')
+
+            mock.post(
+                authorizer_url,
+                payload={
+                    'status': 'ok',
+                },
+            )
+            await session.on_client_event(
+                {
+                    'event': 'subscribe',
+                    'subscription': 'dms.99b97d71-454b-0d72-f069-eaede0d688cd-6d839fd0-770a-885a-aaa3-1a20cc77cd12',
+                }
+            )
+            assert client.log.pop() == {
+                'event': 'subscribe',
+                'subscription': 'dms.99b97d71-454b-0d72-f069-eaede0d688cd-6d839fd0-770a-885a-aaa3-1a20cc77cd12',
+                'status': 'error',
+                'error': c.ERR_SERVICE_UNAVAILABLE,
+                'data': {'reason': 'DMSv1 is disabled'},
+            }
+
+        assert client.log == []
 
         await shark.shutdown()
 
