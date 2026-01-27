@@ -1,8 +1,8 @@
 ===========
 SocketShark
 ===========
-.. image:: https://circleci.com/gh/closeio/socketshark/tree/master.svg?style=svg
-    :target: https://circleci.com/gh/closeio/socketshark/tree/master
+.. image:: https://github.com/closeio/socketshark/actions/workflows/test.yaml/badge.svg
+    :target: https://github.com/closeio/socketshark/actions/workflows/test.yaml
 
 *SocketShark* is a WebSocket message router based on Python/Redis/asyncio.
 
