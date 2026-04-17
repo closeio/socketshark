@@ -1,4 +1,5 @@
 import datetime
+
 from . import constants as c
 from .events import Event, InvalidEvent, UnknownEvent
 
