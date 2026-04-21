@@ -1,3 +1,5 @@
+import datetime
+
 from . import constants as c
 from .events import Event, InvalidEvent, UnknownEvent
 
@@ -81,14 +83,28 @@ class Session:
         if not subscription.should_deliver_message(data):
             return
 
-        await self.send_message(subscription, data['data'])
+        published_at = data.get('published_at')
+        if published_at is not None:
+            try:
+                published_at = datetime.datetime.fromisoformat(published_at)
+            except ValueError:
+                self.log.warn(
+                    'invalid published_at format', published_at=published_at
+                )
+                published_at = None
 
-    async def send_message(self, subscription, data):
+        await self.send_message(subscription, data['data'], published_at)
+
+    async def send_message(
+        self, subscription, data, published_at: datetime.datetime | None = None
+    ):
         msg = {
             'event': 'message',
             'subscription': subscription.name,
             'data': data,
         }
+        if published_at is not None:
+            msg['published_at'] = published_at.isoformat()
         msg.update(subscription.extra_data)
         await self.send(msg)
 
