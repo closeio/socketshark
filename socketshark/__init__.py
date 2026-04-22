@@ -119,7 +119,7 @@ class SocketShark:
         If one goes down, the service will shut down to communicate to
         Websocket clients to attempt to reconnect to another host.
         """
-        tasks = [c.redis.wait_closed() for c in self.redis_connections]
+        tasks = [asyncio.ensure_future(c.redis.wait_closed()) for c in self.redis_connections]
         await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
 
         self.log.error('redis unexpectedly closed')
