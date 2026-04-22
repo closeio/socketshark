@@ -61,7 +61,12 @@ class Session:
             await event.send_error(c.ERR_UNHANDLED_EXCEPTION)
             await self.close()
 
-    async def on_service_event(self, data):
+    async def on_service_event(
+        self,
+        data,
+        *,
+        received_at: datetime.datetime | None = None,
+    ):
         """
         Callback called by the ServiceReceiver.
 
@@ -93,10 +98,20 @@ class Session:
                 )
                 published_at = None
 
-        await self.send_message(subscription, data['data'], published_at)
+        await self.send_message(
+            subscription,
+            data['data'],
+            published_at=published_at,
+            received_at=received_at,
+        )
 
     async def send_message(
-        self, subscription, data, published_at: datetime.datetime | None = None
+        self,
+        subscription,
+        data,
+        *,
+        published_at: datetime.datetime | None = None,
+        received_at: datetime.datetime | None = None,
     ):
         msg = {
             'event': 'message',
@@ -105,7 +120,13 @@ class Session:
         }
         if published_at is not None:
             msg['published_at'] = published_at.isoformat()
+        if received_at is not None:
+            msg['received_at'] = received_at.isoformat()
         msg.update(subscription.extra_data)
+        msg['sent_at'] = datetime.datetime.now(
+            datetime.timezone.utc
+        ).isoformat()
+
         await self.send(msg)
 
     async def send_unsubscribe(self, subscription, data=None, error=None):

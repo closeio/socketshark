@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import json
 import time
 from collections import defaultdict
@@ -107,6 +108,7 @@ class ServiceReceiver:
 
         while True:
             data = await connection.redis_receiver.get()
+            received_at = datetime.datetime.now(datetime.timezone.utc)
             channel, msg = data
             if channel == connection.stop_channel:
                 break
@@ -124,7 +126,9 @@ class ServiceReceiver:
                     self.provisional_subscriptions[subscription]
                 )
                 for session in confirmed_sessions:
-                    await session.on_service_event(data)
+                    await session.on_service_event(
+                        data, received_at=received_at
+                    )
                 for session in provisional_sesssions:
                     self.provisional_events[session].append(data)
             except json.decoder.JSONDecodeError:
