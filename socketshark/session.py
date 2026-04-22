@@ -66,6 +66,7 @@ class Session:
         data,
         *,
         received_at: datetime.datetime | None = None,
+        queue_size: int | None = None,
     ):
         """
         Callback called by the ServiceReceiver.
@@ -103,6 +104,7 @@ class Session:
             data['data'],
             published_at=published_at,
             received_at=received_at,
+            queue_size=queue_size,
         )
 
     async def send_message(
@@ -112,6 +114,7 @@ class Session:
         *,
         published_at: datetime.datetime | None = None,
         received_at: datetime.datetime | None = None,
+        queue_size: int | None = None,
     ):
         msg = {
             'event': 'message',
@@ -122,6 +125,8 @@ class Session:
             msg['published_at'] = published_at.isoformat()
         if received_at is not None:
             msg['received_at'] = received_at.isoformat()
+        if queue_size is not None:
+            msg['queue_size'] = queue_size
         msg.update(subscription.extra_data)
         msg['sent_at'] = datetime.datetime.now(
             datetime.timezone.utc

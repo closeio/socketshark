@@ -595,6 +595,7 @@ class TestSession:
                 'subscription': 'simple.topic',
                 'data': {'baz': 'foo'},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
             {
@@ -602,6 +603,7 @@ class TestSession:
                 'subscription': 'simple.topic',
                 'data': {'arrives': True},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
         ]
@@ -714,6 +716,7 @@ class TestSession:
                 'subscription': 'simple_auth.topic',
                 'data': {'foo': 'bar'},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
             {
@@ -721,6 +724,7 @@ class TestSession:
                 'subscription': 'simple_auth.topic',
                 'data': {'arrives': True},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
         ]
@@ -1348,6 +1352,7 @@ class TestSession:
             'data': {'foo': 'bar'},
             'extra': 'hello',
             'received_at': ANY,
+            'queue_size': ANY,
             'sent_at': ANY,
         }
 
@@ -1661,6 +1666,7 @@ class TestSession:
                 'subscription': subscription,
                 'data': {'msg': 4},  # order 3
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
             {
@@ -1668,6 +1674,7 @@ class TestSession:
                 'subscription': subscription,
                 'data': {'msg': 5},  # order 5
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
             {
@@ -1675,6 +1682,7 @@ class TestSession:
                 'subscription': subscription,
                 'data': {'msg': 8},  # order 6
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
             {
@@ -1682,6 +1690,7 @@ class TestSession:
                 'subscription': subscription,
                 'data': {'other': 1},  # other order 1
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
             {
@@ -1689,6 +1698,7 @@ class TestSession:
                 'subscription': subscription,
                 'data': {'other': 2},  # other order 3
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
         ]
@@ -1757,6 +1767,7 @@ class TestSession:
                 'subscription': subscription,
                 'data': {'foo': 'invalid'},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
             {
@@ -1764,6 +1775,7 @@ class TestSession:
                 'subscription': subscription,
                 'data': {'foo': 'bar'},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
         ]
@@ -1831,6 +1843,7 @@ class TestSession:
                 'extra': 'bar',
                 'data': {'test': 'bar'},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             }
         ]
@@ -2091,6 +2104,7 @@ class TestThrottle:
                 'subscription': subscription,
                 'data': {'foo': 'one'},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
             {
@@ -2098,6 +2112,7 @@ class TestThrottle:
                 'subscription': subscription,
                 'data': {'bar': 'one'},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
             {
@@ -2105,6 +2120,7 @@ class TestThrottle:
                 'subscription': subscription,
                 'data': {'invalid': 'one'},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
             {
@@ -2112,6 +2128,7 @@ class TestThrottle:
                 'subscription': subscription,
                 'data': {'unthrottled': 'one'},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
             {
@@ -2119,6 +2136,7 @@ class TestThrottle:
                 'subscription': subscription,
                 'data': {'unthrottled': 'two'},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
         ]
@@ -2161,6 +2179,7 @@ class TestThrottle:
                 'subscription': subscription,
                 'data': {'foo': 'four'},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             }
         ]
@@ -2225,6 +2244,7 @@ class TestThrottle:
                 'subscription': subscription,
                 'data': {'foo': 'one'},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             }
         ]
@@ -2301,6 +2321,7 @@ class TestThrottle:
                 'subscription': subscription,
                 'data': {'foo': 'one'},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             }
         ]
@@ -2703,6 +2724,7 @@ class TestWebsocket:
                 'subscription': subscription,
                 'data': {'baz': 'new'},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             }
 
@@ -2827,6 +2849,7 @@ class TestRedisConnection:
                 'subscription': subscription,
                 'data': {'foo': 'one'},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
             {
@@ -2834,6 +2857,7 @@ class TestRedisConnection:
                 'subscription': subscription,
                 'data': {'bar': 'one'},
                 'received_at': ANY,
+                'queue_size': ANY,
                 'sent_at': ANY,
             },
         ]
