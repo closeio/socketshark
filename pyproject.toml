@@ -10,7 +10,56 @@ exclude = '''
 )/
 '''
 
+[build-system]
+requires = ["uv_build==0.11.7"]
+build-backend = "uv_build"
+
 [project]
 name = "socketshark"
 version = "0.5.0"
+description = "WebSocket message router"
+readme = "README.rst"
+license = "MIT"
 requires-python = ">=3.10"
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "aiohttp",
+    "aioredis",
+    "click",
+    "structlog",
+    "websockets",
+]
+
+[project.optional-dependencies]
+prometheus = ["prometheus-async"]
+tests = [
+    "aiohttp",
+    "aioredis",
+    "click",
+    "structlog",
+    "websockets",
+    "aioresponses",
+    "pytest",
+    "pytest-asyncio",
+    "lintlizard",
+]
+
+[project.urls]
+Homepage = "http://github.com/closeio/socketshark"
+
+[project.scripts]
+socketshark = "socketshark.__main__:run"
+
+[tool.uv.build-backend]
+module-name = "socketshark"
+module-root = ""
