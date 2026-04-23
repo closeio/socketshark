@@ -9,8 +9,3 @@ exclude = '''
   | ui
 )/
 '''
-
-[project]
-name = "socketshark"
-version = "0.5.0"
-requires-python = ">=3.10"
