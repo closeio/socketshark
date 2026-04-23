@@ -3,7 +3,7 @@ import json
 import os
 import random
 import time
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import aiohttp
 import aioredis
@@ -594,11 +594,17 @@ class TestSession:
                 'event': 'message',
                 'subscription': 'simple.topic',
                 'data': {'baz': 'foo'},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
             {
                 'event': 'message',
                 'subscription': 'simple.topic',
                 'data': {'arrives': True},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
         ]
 
@@ -709,11 +715,17 @@ class TestSession:
                 'event': 'message',
                 'subscription': 'simple_auth.topic',
                 'data': {'foo': 'bar'},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
             {
                 'event': 'message',
                 'subscription': 'simple_auth.topic',
                 'data': {'arrives': True},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
         ]
 
@@ -1339,6 +1351,9 @@ class TestSession:
             'subscription': 'complex.topic',
             'data': {'foo': 'bar'},
             'extra': 'hello',
+            'received_at': ANY,
+            'queue_size': ANY,
+            'sent_at': ANY,
         }
 
         # Test unsubscribe callbacks
@@ -1650,26 +1665,41 @@ class TestSession:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'msg': 4},  # order 3
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'msg': 5},  # order 5
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'msg': 8},  # order 6
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'other': 1},  # other order 1
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'other': 2},  # other order 3
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
         ]
 
@@ -1736,11 +1766,17 @@ class TestSession:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'invalid'},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'bar'},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
         ]
 
@@ -1806,6 +1842,9 @@ class TestSession:
                 'subscription': subscription,
                 'extra': 'bar',
                 'data': {'test': 'bar'},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             }
         ]
 
@@ -2064,26 +2103,41 @@ class TestThrottle:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'one'},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'bar': 'one'},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'invalid': 'one'},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'unthrottled': 'one'},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'unthrottled': 'two'},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
         ]
         client.log = []
@@ -2096,6 +2150,7 @@ class TestThrottle:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'three'},
+                'sent_at': ANY,
             }
         ]
         client.log = []
@@ -2123,6 +2178,9 @@ class TestThrottle:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'four'},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             }
         ]
 
@@ -2185,6 +2243,9 @@ class TestThrottle:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'one'},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             }
         ]
 
@@ -2259,6 +2320,9 @@ class TestThrottle:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'one'},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             }
         ]
         client.log = []
@@ -2305,6 +2369,7 @@ class TestThrottle:
             'event': 'message',
             'subscription': subscription,
             'data': {'foo': 'two'},
+            'sent_at': ANY,
         }
 
         if throttle - wait > 0:
@@ -2318,6 +2383,7 @@ class TestThrottle:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'three'},
+                'sent_at': ANY,
             }
         ]
 
@@ -2657,6 +2723,9 @@ class TestWebsocket:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'baz': 'new'},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             }
 
             redis.close()
@@ -2779,11 +2848,17 @@ class TestRedisConnection:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'one'},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'bar': 'one'},
+                'received_at': ANY,
+                'queue_size': ANY,
+                'sent_at': ANY,
             },
         ]
 
