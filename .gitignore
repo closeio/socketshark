@@ -9,3 +9,6 @@ dist/
 __pycache__
 venv
 .venv
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/worktrees/
