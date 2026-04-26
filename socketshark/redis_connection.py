@@ -4,6 +4,7 @@ import aioredis
 from aioredis.pubsub import Receiver
 
 from .exceptions import RedisConnectionError
+from .types import RedisSettings
 
 
 class RedisConnection:
@@ -11,15 +12,15 @@ class RedisConnection:
     Redis connection wrapper.
     """
 
-    def __init__(self, redis_settings) -> None:
-        self.host = redis_settings['host']
-        self.port = redis_settings['port']
-        self.db = redis_settings.get('db', 0)
-        self.channel_prefix = redis_settings['channel_prefix']
-        self.ping_interval = redis_settings['ping_interval']
-        self.ping_timeout = redis_settings['ping_timeout']
+    def __init__(self, redis_settings: RedisSettings) -> None:
+        self.host: str = redis_settings['host']
+        self.port: int = redis_settings['port']
+        self.db: int = redis_settings.get('db', 0)
+        self.channel_prefix: str = redis_settings['channel_prefix']
+        self.ping_interval: int = redis_settings['ping_interval']
+        self.ping_timeout: int = redis_settings['ping_timeout']
 
-    async def connect(self):
+    async def connect(self) -> None:
         self.redis_receiver = Receiver(loop=asyncio.get_event_loop())
         self.redis = await aioredis.create_redis(
             (self.host, self.port), db=self.db
@@ -36,7 +37,7 @@ class RedisConnection:
         self.stop_channel = self.redis_receiver.channel('_internal')
 
     @classmethod
-    async def create(cls, redis_settings):
+    async def create(cls, redis_settings: RedisSettings) -> 'RedisConnection':
         connection = cls(redis_settings)
         await connection.connect()
         return connection

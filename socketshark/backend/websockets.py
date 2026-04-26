@@ -1,15 +1,24 @@
 import asyncio
 import json
 import time
+from typing import TYPE_CHECKING, Any
 
 import websockets
 
 from .. import constants as c
 from ..session import Session
+from ..types import ClientMessage
+
+if TYPE_CHECKING:
+    from .. import SocketShark
 
 
 class Client:
-    def __init__(self, shark, websocket):
+    def __init__(
+        self,
+        shark: 'SocketShark',
+        websocket: websockets.WebSocketServerProtocol,
+    ) -> None:
         self.websocket = websocket
         self.session = Session(
             shark,
@@ -20,7 +29,7 @@ class Client:
         )
         self.shark = shark
 
-    async def ping_timeout_handler(self, ping):
+    async def ping_timeout_handler(self, ping: asyncio.Future[Any]) -> bool:
         ping_timeout = self.shark.config['WS_PING']['timeout']
         await asyncio.sleep(ping_timeout)
 
@@ -33,7 +42,7 @@ class Client:
 
         return False
 
-    async def ping_handler(self):
+    async def ping_handler(self) -> None:
         ping_interval = self.shark.config['WS_PING']['interval']
         if not ping_interval:
             return
@@ -62,7 +71,7 @@ class Client:
             if not timeout_handler.cancel() and timeout_handler.result():
                 return
 
-    async def consumer_handler(self):
+    async def consumer_handler(self) -> None:
         try:
             ping_handler = asyncio.ensure_future(self.ping_handler())
             try:
@@ -73,10 +82,12 @@ class Client:
                     except json.decoder.JSONDecodeError:
                         self.session.log.warn('received invalid json')
                         await self.send(
-                            {
-                                "status": "error",
-                                "error": c.ERR_INVALID_EVENT,
-                            }
+                            ClientMessage(
+                                {
+                                    "status": "error",
+                                    "error": c.ERR_INVALID_EVENT,
+                                }
+                            )
                         )
                     else:
                         await self.session.on_client_event(data)
@@ -87,23 +98,23 @@ class Client:
         except Exception:
             self.session.log.exception('unhandled error in consumer handler')
 
-    async def send(self, event):
+    async def send(self, event: ClientMessage) -> None:
         try:
             await self.websocket.send(json.dumps(event))
         except websockets.ConnectionClosed:
             self.session.log.warn('attempted to send to closed socket')
 
-    async def close(self):
+    async def close(self) -> None:
         await self.websocket.close()
 
 
 class Backend:
-    def __init__(self, shark):
+    def __init__(self, shark: 'SocketShark') -> None:
         self.shark = shark
-        self.server = None
-        self._closed = False
+        self.server: websockets.WebSocketServer | None = None
+        self._closed: bool = False
 
-    def close(self):
+    def close(self) -> None:
         """
         Called by SocketShark to make the backend stop accepting connections.
         """
@@ -112,7 +123,7 @@ class Backend:
             self._closed = True
             self.server.server.close()
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         """
         Called by SocketShark to close any open connections.
         """
@@ -120,12 +131,14 @@ class Backend:
             self.server.close()
             await self.server.wait_closed()
 
-    def start(self):
+    def start(self) -> None:
         """
         Called by SocketShark to initialize the server, prepare & run.
         """
 
-        async def serve(websocket, path):
+        async def serve(
+            websocket: websockets.WebSocketServerProtocol, path: str
+        ) -> None:
             # If there are any pending connections that were established after
             # calling close() but before this callback was executed, close
             # them immediately.

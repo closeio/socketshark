@@ -1,7 +1,13 @@
 import asyncio
+from typing import TYPE_CHECKING
 
 from prometheus_async.aio.web import start_http_server
 from prometheus_client import Counter, Gauge
+
+from ..types import MetricsProviderConfig
+
+if TYPE_CHECKING:
+    from .. import SocketShark
 
 
 class PrometheusMetrics:
@@ -9,7 +15,9 @@ class PrometheusMetrics:
     Prometheus metrics provider.
     """
 
-    def __init__(self, shark, config):
+    def __init__(
+        self, shark: 'SocketShark', config: MetricsProviderConfig
+    ) -> None:
         self.ready_gauge = Gauge('socketshark_service_state', 'Service status')
         self.active_connections_gauge = Gauge(
             'socketshark_connection_count', 'Active connections'
@@ -24,10 +32,10 @@ class PrometheusMetrics:
         )
 
         self.config = config
-        self.active_connections = 0
+        self.active_connections: int = 0
         assert 'port' in self.config
 
-    def initialize(self):
+    def initialize(self) -> None:
         # Run Prometheus but don't fail hard if it doesn't start.
         asyncio.ensure_future(
             start_http_server(
@@ -35,19 +43,19 @@ class PrometheusMetrics:
             )
         )
 
-    def decrease_connection_count(self):
+    def decrease_connection_count(self) -> None:
         self.active_connections -= 1
         self.active_connections_gauge.set(self.active_connections)
 
-    def increase_connection_count(self):
+    def increase_connection_count(self) -> None:
         self.connection_counter.inc()
         self.active_connections += 1
         self.active_connections_gauge.set(self.active_connections)
 
-    def set_ready(self, ready):
+    def set_ready(self, ready: bool) -> None:
         self.ready_gauge.set(int(ready))
 
-    def log_event(self, event, success):
+    def log_event(self, event: str, success: bool | None) -> None:
         if success:
             self.event_counter.labels(event=event, status='success').inc()
         else:

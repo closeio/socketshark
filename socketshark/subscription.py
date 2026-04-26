@@ -1,14 +1,31 @@
 import asyncio
 import random
 import time
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from . import constants as c
 from .exceptions import EventError
+from .types import (
+    ClientEventData,
+    Config,
+    EventErrorData,
+    ExtraData,
+    MessageOptions,
+    ServiceConfig,
+    ServiceEventData,
+    ServiceRequestData,
+    ServiceResponse,
+    SubscriptionName,
+)
 from .utils import http_post
 
+if TYPE_CHECKING:
+    from . import SocketShark
+    from .events import Event
+    from .session import Session
 
-def _get_options(data):
+
+def _get_options(data: dict[str, Any]) -> MessageOptions:
     """
     Return a dict of parsed message options.
     """
@@ -37,7 +54,7 @@ def _get_options(data):
         else:
             options['throttle_key'] = raw_options.get('throttle_key')
 
-    return options
+    return MessageOptions(options)
 
 
 class Subscription:
@@ -45,34 +62,40 @@ class Subscription:
     A subscription of a session to a service and topic.
     """
 
-    def __init__(self, config, session, data):
+    def __init__(
+        self, config: Config, session: 'Session', data: ClientEventData
+    ) -> None:
         self.config = config
         self.session = session
-        self.shark = session.shark
-        self.name = data.get('subscription') or ''
+        self.shark: 'SocketShark' = session.shark
+        self.name: SubscriptionName = SubscriptionName(
+            data.get('subscription') or ''
+        )
         self.service: Optional[str] = None
         self.topic: Optional[str] = None
         if '.' in self.name:
             self.service, self.topic = self.name.split('.', 1)
+        self.service_config: ServiceConfig | None
         if self.service in config['SERVICES']:
-            self.service_config = config['SERVICES'][self.service]
-            self.extra_fields = self.service_config.get('extra_fields', [])
-            self.extra_data = {
-                field: data[field]
-                for field in self.extra_fields
-                if field in data
-            }
-            self.authorizer_fields = self.service_config.get(
-                'authorizer_fields', []
+            sc: ServiceConfig = config['SERVICES'][self.service]
+            self.service_config = sc
+            self.extra_fields: list[str] = sc.get('extra_fields', [])
+            self.extra_data: ExtraData = ExtraData(
+                {
+                    field: data[field]
+                    for field in self.extra_fields
+                    if field in data
+                }
             )
+            self.authorizer_fields: list[str] = sc.get('authorizer_fields', [])
         else:
             self.service_config = None
-            self.extra_data = {}
+            self.extra_data = ExtraData({})
             self.authorizer_fields = []
-        self.authorizer_data = None
+        self.authorizer_data: dict[str, Any] | None = None
 
         # order key -> numeric order (the default order key is None)
-        self.order_state = {}
+        self.order_state: dict[str | None, float] = {}
 
         # throttle key -> (last message sent timestamp, latest message, task)
         # If this is set, the possible states are:
@@ -81,53 +104,62 @@ class Subscription:
         #                     given asyncio task.
         # (ts, None, task) -- A message is currently being sent by the given
         #                     asyncio task.
-        self.throttle_state = {}
+        self.throttle_state: dict[
+            str | None,
+            tuple[
+                float,
+                ServiceEventData | ServiceResponse | None,
+                asyncio.Task[None] | None,
+            ],
+        ] = {}
 
-        self._periodic_authorizer_task = None
-        self._periodic_heartbeat_task = None
+        self._periodic_authorizer_task: asyncio.Task[None] | None = None
+        self._periodic_heartbeat_task: asyncio.Task[None] | None = None
 
-    def validate(self):
+    def validate(self) -> None:
         if not self.service or not self.topic:
             raise EventError(c.ERR_INVALID_SUBSCRIPTION_FORMAT)
 
         if self.service_config is None:
             raise EventError(c.ERR_INVALID_SERVICE)
 
-    def prepare_service_data(self):
+    def prepare_service_data(self) -> ServiceRequestData:
         """
         Return a data dict to be sent to the service handler.
         """
-        data = {'subscription': self.name}
+        data: dict[str, Any] = {'subscription': self.name}
         data.update(self.extra_data)
         if self.authorizer_data:
             data.update(self.authorizer_data)
         data.update(self.session.auth_info)
-        return data
+        return ServiceRequestData(data)
 
     async def perform_service_request(
         self,
-        service_event,
-        extra_data=None,
-        error_message=None,
-        raise_error=True,
-    ):
+        service_event: str,
+        extra_data: ServiceRequestData | None = None,
+        error_message: str | None = None,
+        raise_error: bool = True,
+    ) -> ServiceResponse:
+        assert self.service_config is not None
         if service_event in self.service_config:
-            url = self.service_config[service_event]
+            url: str = self.service_config[service_event]
             data = self.prepare_service_data()
             if extra_data is not None:
                 data.update(extra_data)
             result = await http_post(self.shark, url, data)
             if raise_error and result.get('status') != 'ok':
+                error_data = result.get('data')
                 raise EventError(
                     result.get(
                         'error', error_message or c.ERR_UNHANDLED_EXCEPTION
                     ),
-                    data=result.get('data'),
+                    data=EventErrorData(error_data) if error_data else None,
                 )
             return result
-        return {'status': 'ok'}
+        return ServiceResponse({'status': 'ok'})
 
-    async def authorize_subscription(self):
+    async def authorize_subscription(self) -> None:
         data = await self.perform_service_request(
             'authorizer', error_message=c.ERR_UNAUTHORIZED
         )
@@ -150,9 +182,12 @@ class Subscription:
         if fields_changed:
             await self.perform_service_request('on_authorization_change')
 
-    async def periodic_authorizer(self):
-        period = self.service_config['authorization_renewal_period']
-        jitter = self.service_config.get('authorization_renewal_jitter', 0)
+    async def periodic_authorizer(self) -> None:
+        assert self.service_config is not None
+        period: float = self.service_config['authorization_renewal_period']
+        jitter: float = self.service_config.get(
+            'authorization_renewal_jitter', 0
+        )
         self.session.trace_log.debug(
             'initializing periodic authorizer',
             subscription=self.name,
@@ -178,11 +213,12 @@ class Subscription:
                 )
                 await self.self_unsubscribe(e.error)
 
-    async def send_heartbeat(self):
+    async def send_heartbeat(self) -> None:
         await self.perform_service_request('on_heartbeat')
 
-    async def periodic_heartbeat(self):
-        period = self.service_config['heartbeat_period']
+    async def periodic_heartbeat(self) -> None:
+        assert self.service_config is not None
+        period: float = self.service_config['heartbeat_period']
         self.session.trace_log.debug(
             'initializing periodic heartbeat task',
             subscription=self.name,
@@ -210,39 +246,46 @@ class Subscription:
                 )
             await asyncio.sleep(period)
 
-    async def before_subscribe(self):
+    async def before_subscribe(self) -> ServiceResponse:
         return await self.perform_service_request('before_subscribe')
 
-    async def on_subscribe(self):
+    async def on_subscribe(self) -> ServiceResponse:
         return await self.perform_service_request(
             'on_subscribe', raise_error=False
         )
 
-    async def on_message(self, message_data):
+    async def on_message(self, message_data: Any) -> ServiceResponse:
         return await self.perform_service_request(
             'on_message',
-            extra_data={
-                'data': message_data,
-            },
+            extra_data=ServiceRequestData(
+                {
+                    'data': message_data,
+                }
+            ),
         )
 
-    async def before_unsubscribe(self, raise_error=True):
+    async def before_unsubscribe(
+        self, raise_error: bool = True
+    ) -> ServiceResponse:
         return await self.perform_service_request(
             'before_unsubscribe', raise_error=raise_error
         )
 
-    async def on_unsubscribe(self):
+    async def on_unsubscribe(self) -> ServiceResponse:
         return await self.perform_service_request(
             'on_unsubscribe', raise_error=False
         )
 
-    def _should_deliver_message_filter_fields(self, data):
+    def _should_deliver_message_filter_fields(
+        self, data: ServiceEventData | ServiceResponse
+    ) -> bool:
         """
         Return whether to deliver the given message based on filter feilds.
         """
+        assert self.service_config is not None
         # Check whether the message is filtered by comparing any defined
         # filter_fields to auth_info and extra_fields.
-        filter_fields = self.service_config.get('filter_fields', [])
+        filter_fields: list[str] = self.service_config.get('filter_fields', [])
         for field in filter_fields:
             if field in data:
                 if field in self.extra_fields:
@@ -254,16 +297,18 @@ class Subscription:
                     return False
         return True
 
-    def _should_deliver_message_order(self, data, options):
+    def _should_deliver_message_order(
+        self, data: ServiceEventData | ServiceResponse, options: MessageOptions
+    ) -> bool:
         """
         Return whether to deliver the given message based on order.
         """
-        order = options['order']
+        order: float | None = options['order']
         if order is None:
             return True
 
         # Check whether the message is out-of-order.
-        key = options['order_key']
+        key: str | None = options['order_key']
         last_order = self.order_state.get(key)
 
         if last_order is not None and order <= last_order:
@@ -273,15 +318,17 @@ class Subscription:
 
         return True
 
-    def _should_deliver_message_throttle(self, data, options):
+    def _should_deliver_message_throttle(
+        self, data: ServiceEventData | ServiceResponse, options: MessageOptions
+    ) -> bool:
         """
         Return whether to deliver the given message based on throttling.
         """
-        throttle = options['throttle']
+        throttle: float | None = options['throttle']
         if throttle is None:
             return True
 
-        key = options['throttle_key']
+        key: str | None = options['throttle_key']
         last_throttle = self.throttle_state.get(key)
         now = time.time()
         if last_throttle:
@@ -300,7 +347,12 @@ class Subscription:
         self.throttle_state[key] = (now, None, None)
         return True
 
-    def _schedule_throttled_message_task(self, key, ts_last_msg_sent, data):
+    def _schedule_throttled_message_task(
+        self,
+        key: str | None,
+        ts_last_msg_sent: float,
+        data: ServiceEventData | ServiceResponse,
+    ) -> None:
         options = _get_options(data)
         # This should succeed since we parsed it previously
         when = ts_last_msg_sent + options['throttle']
@@ -309,7 +361,9 @@ class Subscription:
         )
         self.throttle_state[key] = (ts_last_msg_sent, data, task)
 
-    def should_deliver_message(self, data):
+    def should_deliver_message(
+        self, data: ServiceEventData | ServiceResponse
+    ) -> bool:
         """
         Return whether to deliver the given message.
         """
@@ -335,7 +389,9 @@ class Subscription:
 
         return True
 
-    async def _schedule_throttled_message(self, when, throttle_key):
+    async def _schedule_throttled_message(
+        self, when: float, throttle_key: str | None
+    ) -> None:
         delay = when - time.time()
         self.session.trace_log.debug(
             'throttled message scheduled',
@@ -354,7 +410,7 @@ class Subscription:
                 'unhandled exception when sending ' 'throttled message'
             )
 
-    async def _send_throttled_message(self, throttle_key):
+    async def _send_throttled_message(self, throttle_key: str | None) -> None:
         # We've unsubscribed meanwhile.
         if self.name not in self.session.subscriptions:
             self.session.trace_log.debug(
@@ -370,6 +426,7 @@ class Subscription:
         self.session.trace_log.debug(
             'sending throttled message', throttle_key=throttle_key
         )
+        assert pending_msg is not None
         await self.session.send_message(self, pending_msg['data'])
 
         ts_last_msg_sent, pending_msg, task = self.throttle_state[throttle_key]
@@ -386,10 +443,11 @@ class Subscription:
         else:
             self.throttle_state[throttle_key] = (now, None, None)
 
-    async def subscribe(self, event):
+    async def subscribe(self, event: 'Event') -> None:
         """
         Subscribe to the subscription.
         """
+        assert self.service_config is not None
         require_authentication = self.service_config.get(
             'require_authentication', True
         )
@@ -432,7 +490,7 @@ class Subscription:
 
         await self.on_subscribe()
 
-    async def message(self, event):
+    async def message(self, event: 'Event') -> None:
         """
         Send a message to the subscription.
         """
@@ -446,7 +504,7 @@ class Subscription:
             if event:
                 await event.send_ok(result['data'])
 
-    async def cleanup_subscription(self):
+    async def cleanup_subscription(self) -> None:
         await self.shark.service_receiver.delete_subscription(
             self.session, self.name
         )
@@ -462,7 +520,7 @@ class Subscription:
         if self._periodic_heartbeat_task:
             self._periodic_heartbeat_task.cancel()
 
-    async def unsubscribe(self, event):
+    async def unsubscribe(self, event: 'Event') -> None:
         """
         Unsubscribe from the subscription.
         """
@@ -478,7 +536,7 @@ class Subscription:
 
         await self.on_unsubscribe()
 
-    async def self_unsubscribe(self, error):
+    async def self_unsubscribe(self, error: str) -> None:
         """
         Unsubscribe from the subscription (not triggered by the user).
         """
@@ -489,7 +547,7 @@ class Subscription:
         await self.on_unsubscribe()
         await self.session.send_unsubscribe(self, result.get('data'), error)
 
-    async def force_unsubscribe(self):
+    async def force_unsubscribe(self) -> None:
         """
         Force-unsubscribes from the subscription.
 

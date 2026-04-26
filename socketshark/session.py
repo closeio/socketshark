@@ -1,7 +1,22 @@
 import datetime
+from typing import TYPE_CHECKING, Any
+
+import structlog
 
 from . import constants as c
 from .events import Event, InvalidEvent, UnknownEvent
+from .subscription import Subscription
+from .types import (
+    AuthInfo,
+    ClientEventData,
+    ClientMessage,
+    Config,
+    ServiceEventData,
+    SubscriptionName,
+)
+
+if TYPE_CHECKING:
+    from . import SocketShark
 
 
 class Session:
@@ -9,7 +24,12 @@ class Session:
     Represents a client session
     """
 
-    def __init__(self, shark, client, info=None):
+    def __init__(
+        self,
+        shark: 'SocketShark',
+        client: Any,
+        info: dict[str, Any] | None = None,
+    ) -> None:
         """
         Initialize a session.
 
@@ -20,19 +40,23 @@ class Session:
                   the client's remote address).
         """
         info = info if info is not None else {}
-        self.auth_info = {}
+        self.auth_info: AuthInfo = AuthInfo({})
         self.shark = shark
-        self.config = shark.config
+        self.config: Config = shark.config
         self.client = client
-        self.log = self.shark.log.bind(session=id(self))
-        self.trace_log = self.shark.trace_log.bind(session=id(self))
+        self.log: structlog.stdlib.BoundLogger = self.shark.log.bind(
+            session=id(self)
+        )
+        self.trace_log: structlog.stdlib.BoundLogger = (
+            self.shark.trace_log.bind(session=id(self))
+        )
         self.log.debug('new session', **info)
-        self.subscriptions = {}  # dict of Subscription objects by name
-        self.active = True
+        self.subscriptions: dict[SubscriptionName, Subscription] = {}
+        self.active: bool = True
         shark.sessions.add(self)
         shark.metrics.increase_connection_count()
 
-    async def on_client_event(self, data):
+    async def on_client_event(self, data: ClientEventData) -> None:
         """
         Called by the WebSocket backend when a new client messages comes in.
 
@@ -63,11 +87,11 @@ class Session:
 
     async def on_service_event(
         self,
-        data,
+        data: ServiceEventData,
         *,
         received_at: datetime.datetime | None = None,
         queue_size: int | None = None,
-    ):
+    ) -> None:
         """
         Callback called by the ServiceReceiver.
 
@@ -89,15 +113,18 @@ class Session:
         if not subscription.should_deliver_message(data):
             return
 
-        published_at = data.get('published_at')
-        if published_at is not None:
+        raw_published_at: str | None = data.get('published_at')
+        published_at: datetime.datetime | None = None
+        if raw_published_at is not None:
             try:
-                published_at = datetime.datetime.fromisoformat(published_at)
+                published_at = datetime.datetime.fromisoformat(
+                    raw_published_at
+                )
             except ValueError:
                 self.log.warn(
-                    'invalid published_at format', published_at=published_at
+                    'invalid published_at format',
+                    published_at=raw_published_at,
                 )
-                published_at = None
 
         await self.send_message(
             subscription,
@@ -109,14 +136,14 @@ class Session:
 
     async def send_message(
         self,
-        subscription,
-        data,
+        subscription: Subscription,
+        data: Any,
         *,
         published_at: datetime.datetime | None = None,
         received_at: datetime.datetime | None = None,
         queue_size: int | None = None,
-    ):
-        msg = {
+    ) -> None:
+        msg: dict[str, Any] = {
             'event': 'message',
             'subscription': subscription.name,
             'data': data,
@@ -132,10 +159,15 @@ class Session:
             datetime.timezone.utc
         ).isoformat()
 
-        await self.send(msg)
+        await self.send(ClientMessage(msg))
 
-    async def send_unsubscribe(self, subscription, data=None, error=None):
-        msg = {
+    async def send_unsubscribe(
+        self,
+        subscription: Subscription,
+        data: Any = None,
+        error: str | None = None,
+    ) -> None:
+        msg: dict[str, Any] = {
             'event': 'unsubscribe',
             'subscription': subscription.name,
         }
@@ -144,16 +176,16 @@ class Session:
         if error is not None:
             msg['error'] = error
         msg.update(subscription.extra_data)
-        await self.send(msg)
+        await self.send(ClientMessage(msg))
 
-    async def send(self, data):
+    async def send(self, data: ClientMessage) -> None:
         """
         Send a JSON message to the client.
         """
         self.log.debug('client send', data=data)
         await self.client.send(data)
 
-    async def close(self):
+    async def close(self) -> None:
         if self.active:
             self.log.info('closing connection')
             self.active = False
@@ -161,7 +193,7 @@ class Session:
         else:
             self.log.info('connection already closing')
 
-    async def on_close(self):
+    async def on_close(self) -> None:
         """
         Called by the WebSocket backend to indicate the connection was closed.
         """
@@ -171,7 +203,7 @@ class Session:
         self.shark.sessions.remove(self)
         self.shark.metrics.decrease_connection_count()
 
-    async def unsubscribe_all(self):
+    async def unsubscribe_all(self) -> None:
         """
         Force-unsubscribe all subscriptions of the session.
         """
