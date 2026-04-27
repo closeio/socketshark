@@ -17,6 +17,7 @@ from .types import (
 
 if TYPE_CHECKING:
     from . import SocketShark
+    from .backend.websockets import Client
 
 
 class Session:
@@ -27,7 +28,7 @@ class Session:
     def __init__(
         self,
         shark: 'SocketShark',
-        client: Any,
+        client: 'Client',
         info: dict[str, Any] | None = None,
     ) -> None:
         """
