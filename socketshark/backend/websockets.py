@@ -1,7 +1,7 @@
 import asyncio
 import json
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import websockets
 
@@ -29,7 +29,7 @@ class Client:
         )
         self.shark = shark
 
-    async def ping_timeout_handler(self, ping: asyncio.Future[Any]) -> bool:
+    async def ping_timeout_handler(self, ping: asyncio.Future[None]) -> bool:
         ping_timeout = self.shark.config['WS_PING']['timeout']
         await asyncio.sleep(ping_timeout)
 
