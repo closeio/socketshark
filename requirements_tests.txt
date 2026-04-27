@@ -4,7 +4,8 @@ asynctest==0.13.0
 exceptiongroup==1.2.2
 iniconfig==2.0.0
 pluggy==1.5.0
-pytest==8.0.2
+pygments==2.20.0
+pytest==9.0.3
 pytest-asyncio==0.21.1
 tomli==2.0.2
 typing-extensions~=4.15.0
