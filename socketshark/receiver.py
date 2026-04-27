@@ -3,7 +3,14 @@ import datetime
 import json
 import time
 from collections import defaultdict
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+from .redis_connection import RedisConnection
+from .session import Session
+from .types import ServiceEventData, SubscriptionName
+
+if TYPE_CHECKING:
+    from . import SocketShark
 
 
 class ServiceReceiver:
@@ -11,31 +18,39 @@ class ServiceReceiver:
     Receives messages from services and forwards them to subscribing sessions.
     """
 
-    def __init__(self, shark):
+    def __init__(self, shark: 'SocketShark') -> None:
         self.shark = shark
 
-        self.subscriptions = set()
+        self.subscriptions: set[SubscriptionName] = set()
 
         # {subscription: [sessions]}
-        self.provisional_subscriptions = defaultdict(set)
+        self.provisional_subscriptions: defaultdict[
+            SubscriptionName, set[Session]
+        ] = defaultdict(set)
 
         # {session: [msgs]}
-        self.provisional_events = defaultdict(list)
+        self.provisional_events: defaultdict[
+            Session, list[ServiceEventData]
+        ] = defaultdict(list)
 
         # {subscription: [sessions]}
-        self.confirmed_subscriptions = defaultdict(set)
+        self.confirmed_subscriptions: defaultdict[
+            SubscriptionName, set[Session]
+        ] = defaultdict(set)
 
-        self.redis_connections = shark.redis_connections
-        self._stop = False  # Stop flag
+        self.redis_connections: list[RedisConnection] = shark.redis_connections
+        self._stop: bool = False  # Stop flag
 
-    def _channel(self, redis_connection, name):
+    def _channel(
+        self, redis_connection: RedisConnection, name: SubscriptionName
+    ) -> str:
         return redis_connection.channel_prefix + name
 
-    async def ping_handler(self):
+    async def ping_handler(self) -> None:
         handlers = [self._ping_handler(c) for c in self.redis_connections]
         await asyncio.gather(*handlers)
 
-    async def _ping_handler(self, redis_connection):
+    async def _ping_handler(self, redis_connection: RedisConnection) -> None:
         ping_interval = redis_connection.ping_interval
         ping_timeout = redis_connection.ping_timeout
         if not ping_interval or not ping_timeout:
@@ -86,7 +101,7 @@ class ServiceReceiver:
             if self._stop:
                 await self.stop()
 
-    async def reader(self, once=False):
+    async def reader(self, once: bool = False) -> list[bool | None] | None:
         self._stop = False
         try:
             ping_handler = asyncio.ensure_future(self.ping_handler())
@@ -98,10 +113,13 @@ class ServiceReceiver:
             return result
         except Exception:
             self.shark.log.exception('unhandled exception in receiver')
+            return None
         finally:
             ping_handler.cancel()
 
-    async def _reader_for_connection(self, connection, once=False):
+    async def _reader_for_connection(
+        self, connection: RedisConnection, once: bool = False
+    ) -> bool | None:
         prefix_length = len(connection.channel_prefix)
         if once and not connection.redis_receiver._queue.qsize():
             return False
@@ -113,7 +131,9 @@ class ServiceReceiver:
             channel, msg = data
             if channel == connection.stop_channel:
                 break
-            subscription = channel.name.decode()[prefix_length:]
+            subscription = SubscriptionName(
+                channel.name.decode()[prefix_length:]
+            )
             try:
                 data = json.loads(msg.decode())
                 self.shark.trace_log.debug('service event', data=data)
@@ -138,8 +158,11 @@ class ServiceReceiver:
                 self.shark.log.exception('unhandled exception in receiver')
             if once and not connection.redis_receiver._queue.qsize():
                 return True
+        return None
 
-    async def add_provisional_subscription(self, session, subscription):
+    async def add_provisional_subscription(
+        self, session: Session, subscription: SubscriptionName
+    ) -> None:
         if subscription not in self.subscriptions:
             self.subscriptions.add(subscription)
             await asyncio.gather(
@@ -154,7 +177,9 @@ class ServiceReceiver:
             )
         self.provisional_subscriptions[subscription].add(session)
 
-    async def confirm_subscription(self, session, subscription):
+    async def confirm_subscription(
+        self, session: Session, subscription: SubscriptionName
+    ) -> None:
         self.confirmed_subscriptions[subscription].add(session)
         self.provisional_subscriptions[subscription].remove(session)
 
@@ -167,7 +192,9 @@ class ServiceReceiver:
         for data in events:
             await session.on_service_event(data)
 
-    async def delete_subscription(self, session, subscription):
+    async def delete_subscription(
+        self, session: Session, subscription: SubscriptionName
+    ) -> None:
         conf_set = self.confirmed_subscriptions[subscription]
         conf_set.discard(session)
         prov_set = self.provisional_subscriptions[subscription]
@@ -193,7 +220,7 @@ class ServiceReceiver:
                 ]
             )
 
-    async def stop(self):
+    async def stop(self) -> None:
         self._stop = True
         for c in self.redis_connections:
             c.stop_channel.put_nowait(None)

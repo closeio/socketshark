@@ -1,14 +1,24 @@
 import asyncio
 import ssl
 import time
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit, urlunsplit
 
 import aiohttp
+import structlog
 
 from . import constants as c
+from .types import HttpOptions, ServiceRequestData, ServiceResponse
+
+if TYPE_CHECKING:
+    from . import SocketShark
 
 
-def _get_rate_limit_wait(log, resp, opts):
+def _get_rate_limit_wait(
+    log: structlog.stdlib.BoundLogger,
+    resp: aiohttp.ClientResponse,
+    opts: HttpOptions,
+) -> float:
     """
     Return the number of seconds we should wait if rate limited.
 
@@ -19,7 +29,7 @@ def _get_rate_limit_wait(log, resp, opts):
     """
     max_wait = 3600
 
-    wait = opts['wait']
+    wait: float = opts['wait']
 
     header_names = opts['rate_limit_reset_header_names'] or [
         opts['rate_limit_reset_header_name']
@@ -61,7 +71,7 @@ def _get_rate_limit_wait(log, resp, opts):
     return wait
 
 
-def _scrub_url(url):
+def _scrub_url(url: str) -> str:
     """Scrub URL username and password."""
     url_parts = urlsplit(url)
     if url_parts.password is None:
@@ -76,9 +86,11 @@ def _scrub_url(url):
         return urlunsplit(scrubbed_url_parts)
 
 
-async def http_post(shark, url, data):
+async def http_post(
+    shark: 'SocketShark', url: str, data: ServiceRequestData
+) -> ServiceResponse:
     log = shark.log.bind(url=_scrub_url(url))
-    opts = shark.config['HTTP']
+    opts: HttpOptions = shark.config['HTTP']
     ssl_context = (
         ssl.create_default_context(cafile=opts['ssl_cafile'])
         if opts.get('ssl_cafile')
@@ -86,7 +98,7 @@ async def http_post(shark, url, data):
     )
     conn = aiohttp.TCPConnector(ssl_context=ssl_context)
     async with aiohttp.ClientSession(connector=conn) as session:
-        wait = opts['wait']
+        wait: float = opts['wait']
         for n in range(opts['tries']):
             if n > 0:
                 await asyncio.sleep(wait)
@@ -103,7 +115,7 @@ async def http_post(shark, url, data):
                         wait = opts['wait']
                     resp.raise_for_status()
                     response_data = await resp.json()
-                    return response_data
+                    return ServiceResponse(response_data)
             except aiohttp.ClientError:
                 log.exception('unhandled exception in http_post')
             except asyncio.TimeoutError:
@@ -115,4 +127,6 @@ async def http_post(shark, url, data):
                     response=response_data,
                     duration=time.time() - start_time,
                 )
-        return {'status': 'error', 'error': c.ERR_SERVICE_UNAVAILABLE}
+        return ServiceResponse(
+            {'status': 'error', 'error': c.ERR_SERVICE_UNAVAILABLE}
+        )

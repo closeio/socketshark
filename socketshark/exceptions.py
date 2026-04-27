@@ -1,5 +1,8 @@
+from .types import EventErrorData
+
+
 class EventError(Exception):
-    def __init__(self, error, data=None):
+    def __init__(self, error: str, data: EventErrorData | None = None) -> None:
         """
         Take an error message and an optional dict with extra data.
         """
