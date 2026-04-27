@@ -3,12 +3,13 @@ import json
 import os
 import random
 import time
-from unittest.mock import ANY, patch
+from unittest import mock
 
 import aiohttp
 import aioredis
 import pytest
 from aioresponses import aioresponses
+from structlog.testing import capture_logs
 from yarl import URL
 
 from socketshark import (
@@ -152,11 +153,11 @@ class TestSession:
     """
 
     async def _auth_session(self, session):
-        with aioresponses() as mock:
+        with aioresponses() as mock_responses:
             # Mock auth endpoint
             auth_url = 'http://auth-service/auth/ticket/'
 
-            mock.post(
+            mock_responses.post(
                 auth_url,
                 payload={
                     'status': 'ok',
@@ -256,8 +257,34 @@ class TestSession:
             'event': 'auth',
             'error': c.ERR_AUTH_UNSUPPORTED,
         }
-
         assert not client.log
+
+    @pytest.mark.asyncio
+    async def test_auth_invalid_emits_structlog_logs(self):
+        shark = SocketShark(TEST_CONFIG)
+        session = MockClient(shark).session
+        with capture_logs() as structlog_logs:
+            await session.on_client_event({'event': 'auth', 'method': 'x'})
+        assert structlog_logs == [
+            {
+                'log_level': 'debug',
+                'event': 'client event',
+                'data': {'event': 'auth', 'method': 'x'},
+                'pid': mock.ANY,
+                'session': mock.ANY,
+            },
+            {
+                'log_level': 'debug',
+                'event': 'client send',
+                'data': {
+                    'error': 'Authentication method unsupported.',
+                    'event': 'auth',
+                    'status': 'error',
+                },
+                'pid': mock.ANY,
+                'session': mock.ANY,
+            },
+        ]
 
     @pytest.mark.asyncio
     async def test_auth_ticket(self):
@@ -282,7 +309,7 @@ class TestSession:
             'error': c.ERR_NEEDS_TICKET,
         }
 
-        with aioresponses() as mock:
+        with aioresponses() as mock_responses:
             # Auth endpoint unreachable
             await session.on_client_event(
                 {
@@ -297,12 +324,12 @@ class TestSession:
                 'error': c.ERR_SERVICE_UNAVAILABLE,
             }
 
-        with aioresponses() as mock:
+        with aioresponses() as mock_responses:
             # Mock auth endpoint
             auth_url = 'http://auth-service/auth/ticket/'
 
             # First request fails, second one succeeds.
-            mock.post(
+            mock_responses.post(
                 auth_url,
                 payload={
                     'status': 'error',
@@ -312,7 +339,7 @@ class TestSession:
                 },
             )
 
-            mock.post(
+            mock_responses.post(
                 auth_url,
                 payload={
                     'status': 'ok',
@@ -354,7 +381,7 @@ class TestSession:
             }
 
             # Ensure we passed the right arguments to the auth endpoint.
-            requests = mock.requests[('POST', URL(auth_url))]
+            requests = mock_responses.requests[('POST', URL(auth_url))]
 
             invalid_request, valid_request = requests
 
@@ -594,17 +621,17 @@ class TestSession:
                 'event': 'message',
                 'subscription': 'simple.topic',
                 'data': {'baz': 'foo'},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
             {
                 'event': 'message',
                 'subscription': 'simple.topic',
                 'data': {'arrives': True},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
         ]
 
@@ -715,17 +742,17 @@ class TestSession:
                 'event': 'message',
                 'subscription': 'simple_auth.topic',
                 'data': {'foo': 'bar'},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
             {
                 'event': 'message',
                 'subscription': 'simple_auth.topic',
                 'data': {'arrives': True},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
         ]
 
@@ -753,7 +780,7 @@ class TestSession:
 
         await self._auth_session(session)
 
-        with aioresponses() as mock:
+        with aioresponses() as mock_responses:
             # Authorizer is unavailable.
             await session.on_client_event(
                 {
@@ -768,18 +795,18 @@ class TestSession:
                 'error': c.ERR_SERVICE_UNAVAILABLE,
             }
 
-        with aioresponses() as mock:
+        with aioresponses() as mock_responses:
             # Mock authorizer
             authorizer_url = 'http://auth-service/auth/authorizer/'
 
-            mock.post(
+            mock_responses.post(
                 authorizer_url,
                 payload={
                     'status': 'error',
                 },
             )
 
-            mock.post(
+            mock_responses.post(
                 authorizer_url,
                 payload={
                     'status': 'error',
@@ -787,7 +814,7 @@ class TestSession:
                 },
             )
 
-            mock.post(
+            mock_responses.post(
                 authorizer_url,
                 payload={
                     'status': 'ok',
@@ -836,7 +863,7 @@ class TestSession:
             }
 
             # Ensure we passed the right arguments to the authorizer endpoint.
-            requests = mock.requests[('POST', URL(authorizer_url))]
+            requests = mock_responses.requests[('POST', URL(authorizer_url))]
             r1, r2, r3 = requests
             assert (
                 r1.kwargs['json']
@@ -870,9 +897,9 @@ class TestSession:
 
         await self._auth_session(session)
 
-        with aioresponses() as mock:
+        with aioresponses() as mock_responses:
             # Mock authorizer
-            mock.post(
+            mock_responses.post(
                 conf['authorizer'],
                 payload={
                     'status': 'ok',
@@ -889,7 +916,7 @@ class TestSession:
             )
 
             for endpoint in endpoints:
-                mock.post(endpoint, payload={'status': 'ok'})
+                mock_responses.post(endpoint, payload={'status': 'ok'})
 
             await session.on_client_event(
                 {
@@ -909,7 +936,7 @@ class TestSession:
             await shark.shutdown()
 
             for endpoint in endpoints:
-                requests = mock.requests[('POST', URL(endpoint))]
+                requests = mock_responses.requests[('POST', URL(endpoint))]
                 assert len(requests) == 1
                 r = requests[0]
 
@@ -928,32 +955,32 @@ class TestSession:
 
         await self._auth_session(session)
 
-        with aioresponses() as mock:
+        with aioresponses() as mock_responses:
             # Mock authorizer
             authorizer_url = 'http://auth-service/auth/authorizer/'
 
-            mock.post(
+            mock_responses.post(
                 authorizer_url,
                 payload={
                     'status': 'ok',
                 },
             )
 
-            mock.post(
+            mock_responses.post(
                 authorizer_url,
                 payload={
                     'status': 'ok',
                 },
             )
 
-            mock.post(
+            mock_responses.post(
                 authorizer_url,
                 payload={
                     'status': 'error',
                 },
             )
 
-            mock.post(
+            mock_responses.post(
                 authorizer_url,
                 payload={
                     'status': 'error',
@@ -1026,9 +1053,9 @@ class TestSession:
 
         conf = TEST_CONFIG['SERVICES']['periodic_authorizer_with_fields']
 
-        with aioresponses() as mock:
+        with aioresponses() as mock_responses:
             # Mock authorizer
-            mock.post(
+            mock_responses.post(
                 conf['authorizer'],
                 payload={
                     'status': 'ok',
@@ -1036,7 +1063,7 @@ class TestSession:
                 },
             )
 
-            mock.post(
+            mock_responses.post(
                 conf['authorizer'],
                 payload={
                     'status': 'ok',
@@ -1044,13 +1071,13 @@ class TestSession:
                 },
             )
 
-            mock.post(
+            mock_responses.post(
                 conf['on_subscribe'],
                 payload={
                     'status': 'ok',
                 },
             )
-            mock.post(
+            mock_responses.post(
                 conf['on_authorization_change'],
                 payload={
                     'status': 'ok',
@@ -1074,14 +1101,16 @@ class TestSession:
 
             assert client.log == []
 
-            (request,) = mock.requests[('POST', URL(conf['on_subscribe']))]
+            (request,) = mock_responses.requests[
+                ('POST', URL(conf['on_subscribe']))
+            ]
             assert request.kwargs['json'] == {
                 'subscription': 'periodic_authorizer_with_fields.topic',
                 'session_id': 'sess_123',
                 'capabilities': 'foo',
             }
 
-            (request,) = mock.requests[
+            (request,) = mock_responses.requests[
                 ('POST', URL(conf['on_authorization_change']))
             ]
             assert request.kwargs['json'] == {
@@ -1099,11 +1128,11 @@ class TestSession:
         client = MockClient(shark)
         session = client.session
 
-        with aioresponses() as mock:
+        with aioresponses() as mock_responses:
             # Mock responses
             heartbeat_url = 'http://my-service/heartbeat/'
 
-            mock.post(
+            mock_responses.post(
                 heartbeat_url,
                 payload={
                     'status': 'ok',
@@ -1118,11 +1147,11 @@ class TestSession:
                 }
             )
 
-            mock.assert_not_called()
+            mock_responses.assert_not_called()
             await asyncio.sleep(0.2)
-            mock.assert_called_once()
+            mock_responses.assert_called_once()
             await asyncio.sleep(0.2)
-            assert len(list(mock.requests.values())[0]) == 2
+            assert len(list(mock_responses.requests.values())[0]) == 2
 
         await shark.shutdown()
 
@@ -1137,9 +1166,11 @@ class TestSession:
         conf = TEST_CONFIG['SERVICES']['complex']
 
         # Test unsuccessful subscriptions
-        with aioresponses() as mock:
-            mock.post(conf['authorizer'], payload={'status': 'ok'})
-            mock.post(conf['before_subscribe'], payload={'status': 'error'})
+        with aioresponses() as mock_responses:
+            mock_responses.post(conf['authorizer'], payload={'status': 'ok'})
+            mock_responses.post(
+                conf['before_subscribe'], payload={'status': 'error'}
+            )
 
             await session.on_client_event(
                 {
@@ -1154,8 +1185,8 @@ class TestSession:
                 'error': c.ERR_UNHANDLED_EXCEPTION,
             }
 
-            mock.post(conf['authorizer'], payload={'status': 'ok'})
-            mock.post(
+            mock_responses.post(conf['authorizer'], payload={'status': 'ok'})
+            mock_responses.post(
                 conf['before_subscribe'],
                 payload={
                     'status': 'error',
@@ -1176,8 +1207,12 @@ class TestSession:
                 'error': 'before subscribe error',
             }
 
-            req_list_1 = mock.requests[('POST', URL(conf['authorizer']))]
-            req_list_2 = mock.requests[('POST', URL(conf['before_subscribe']))]
+            req_list_1 = mock_responses.requests[
+                ('POST', URL(conf['authorizer']))
+            ]
+            req_list_2 = mock_responses.requests[
+                ('POST', URL(conf['before_subscribe']))
+            ]
             for request in req_list_1 + req_list_2:
                 assert request.kwargs['json'] == {
                     'session_id': 'sess_123',
@@ -1185,19 +1220,23 @@ class TestSession:
                 }
 
         # Test successful subscription with extra field and messages
-        with aioresponses() as mock:
-            mock.post(conf['authorizer'], payload={'status': 'ok'})
-            mock.post(conf['before_subscribe'], payload={'status': 'ok'})
-            mock.post(conf['on_subscribe'], payload={'doesnt': 'matter'})
-            mock.post(conf['on_message'], payload={'status': 'ok'})
-            mock.post(
+        with aioresponses() as mock_responses:
+            mock_responses.post(conf['authorizer'], payload={'status': 'ok'})
+            mock_responses.post(
+                conf['before_subscribe'], payload={'status': 'ok'}
+            )
+            mock_responses.post(
+                conf['on_subscribe'], payload={'doesnt': 'matter'}
+            )
+            mock_responses.post(conf['on_message'], payload={'status': 'ok'})
+            mock_responses.post(
                 conf['on_message'],
                 payload={
                     'status': 'error',
                     'error': 'on message error',
                 },
             )
-            mock.post(
+            mock_responses.post(
                 conf['on_message'],
                 payload={
                     'status': 'error',
@@ -1205,14 +1244,14 @@ class TestSession:
                     'data': {'extra': 'data'},
                 },
             )
-            mock.post(
+            mock_responses.post(
                 conf['on_message'],
                 payload={
                     'status': 'ok',
                     'data': None,
                 },
             )
-            mock.post(
+            mock_responses.post(
                 conf['on_message'],
                 payload={'status': 'ok', 'data': {'reply': True}},
             )
@@ -1302,9 +1341,15 @@ class TestSession:
                 'data': {'reply': True},
             }
 
-            req_list_1 = mock.requests[('POST', URL(conf['authorizer']))]
-            req_list_2 = mock.requests[('POST', URL(conf['before_subscribe']))]
-            req_list_3 = mock.requests[('POST', URL(conf['on_subscribe']))]
+            req_list_1 = mock_responses.requests[
+                ('POST', URL(conf['authorizer']))
+            ]
+            req_list_2 = mock_responses.requests[
+                ('POST', URL(conf['before_subscribe']))
+            ]
+            req_list_3 = mock_responses.requests[
+                ('POST', URL(conf['on_subscribe']))
+            ]
             for request in req_list_1 + req_list_2 + req_list_3:
                 assert request.kwargs['json'] == {
                     'session_id': 'sess_123',
@@ -1312,7 +1357,9 @@ class TestSession:
                     'extra': 'hello',
                 }
 
-            msg_reqs = mock.requests[('POST', URL(conf['on_message']))]
+            msg_reqs = mock_responses.requests[
+                ('POST', URL(conf['on_message']))
+            ]
             assert msg_reqs[0].kwargs['json'] == {
                 'session_id': 'sess_123',
                 'subscription': 'complex.topic',
@@ -1351,23 +1398,29 @@ class TestSession:
             'subscription': 'complex.topic',
             'data': {'foo': 'bar'},
             'extra': 'hello',
-            'received_at': ANY,
-            'queue_size': ANY,
-            'sent_at': ANY,
+            'received_at': mock.ANY,
+            'queue_size': mock.ANY,
+            'sent_at': mock.ANY,
         }
 
         # Test unsubscribe callbacks
-        with aioresponses() as mock:
-            mock.post(conf['before_unsubscribe'], payload={'status': 'error'})
-            mock.post(
+        with aioresponses() as mock_responses:
+            mock_responses.post(
+                conf['before_unsubscribe'], payload={'status': 'error'}
+            )
+            mock_responses.post(
                 conf['before_unsubscribe'],
                 payload={
                     'status': 'error',
                     'error': 'before unsubscribe error',
                 },
             )
-            mock.post(conf['before_unsubscribe'], payload={'status': 'ok'})
-            mock.post(conf['on_unsubscribe'], payload={'doesnt': 'matter'})
+            mock_responses.post(
+                conf['before_unsubscribe'], payload={'status': 'ok'}
+            )
+            mock_responses.post(
+                conf['on_unsubscribe'], payload={'doesnt': 'matter'}
+            )
 
             await session.on_client_event(
                 {
@@ -1410,10 +1463,12 @@ class TestSession:
                 'extra': 'hello',
             }
 
-            req_list_1 = mock.requests[
+            req_list_1 = mock_responses.requests[
                 ('POST', URL(conf['before_unsubscribe']))
             ]
-            req_list_2 = mock.requests[('POST', URL(conf['on_unsubscribe']))]
+            req_list_2 = mock_responses.requests[
+                ('POST', URL(conf['on_unsubscribe']))
+            ]
             for request in req_list_1 + req_list_2:
                 assert request.kwargs['json'] == {
                     'session_id': 'sess_123',
@@ -1422,24 +1477,24 @@ class TestSession:
                 }
 
         # Test extra data in subscribe/unsubscribe callbacks
-        with aioresponses() as mock:
-            mock.post(conf['authorizer'], payload={'status': 'ok'})
-            mock.post(
+        with aioresponses() as mock_responses:
+            mock_responses.post(conf['authorizer'], payload={'status': 'ok'})
+            mock_responses.post(
                 conf['before_subscribe'],
                 payload={
                     'status': 'ok',
                     'data': {'foo': 'subscribe'},
                 },
             )
-            mock.post(conf['on_subscribe'], payload={})
-            mock.post(
+            mock_responses.post(conf['on_subscribe'], payload={})
+            mock_responses.post(
                 conf['before_unsubscribe'],
                 payload={
                     'status': 'ok',
                     'data': {'foo': 'unsubscribe'},
                 },
             )
-            mock.post(conf['on_unsubscribe'], payload={})
+            mock_responses.post(conf['on_unsubscribe'], payload={})
 
             await session.on_client_event(
                 {
@@ -1499,10 +1554,12 @@ class TestSession:
 
         conf = TEST_CONFIG['SERVICES']['complex']
 
-        with aioresponses() as mock:
-            mock.post(conf['authorizer'], payload={'status': 'ok'})
-            mock.post(conf['before_subscribe'], payload={'status': 'ok'})
-            mock.post(conf['on_subscribe'], payload={})
+        with aioresponses() as mock_responses:
+            mock_responses.post(conf['authorizer'], payload={'status': 'ok'})
+            mock_responses.post(
+                conf['before_subscribe'], payload={'status': 'ok'}
+            )
+            mock_responses.post(conf['on_subscribe'], payload={})
 
             await session.on_client_event(
                 {
@@ -1539,8 +1596,8 @@ class TestSession:
 
         conf = TEST_CONFIG['SERVICES']['simple_before_subscribe']
 
-        with aioresponses() as mock:
-            mock.post(
+        with aioresponses() as mock_responses:
+            mock_responses.post(
                 conf['before_subscribe'],
                 payload={
                     'status': 'ok',
@@ -1665,41 +1722,41 @@ class TestSession:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'msg': 4},  # order 3
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'msg': 5},  # order 5
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'msg': 8},  # order 6
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'other': 1},  # other order 1
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'other': 2},  # other order 3
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
         ]
 
@@ -1766,17 +1823,17 @@ class TestSession:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'invalid'},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'bar'},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
         ]
 
@@ -1842,9 +1899,9 @@ class TestSession:
                 'subscription': subscription,
                 'extra': 'bar',
                 'data': {'test': 'bar'},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             }
         ]
 
@@ -1885,7 +1942,7 @@ class TestSession:
             'status': 'ok',
         }
 
-        with patch('aioredis.Redis.ping', dummy_ping):
+        with mock.patch('aioredis.Redis.ping', dummy_ping):
             task = asyncio.ensure_future(shark.run_service_receiver())
             await task  # Exits due to the timeout
 
@@ -1930,15 +1987,15 @@ class TestSession:
 
         conf = TEST_CONFIG['SERVICES']['simple_before_subscribe']
 
-        with aioresponses() as mock:
-            mock.post(
+        with aioresponses() as mock_responses:
+            mock_responses.post(
                 conf['before_subscribe'],
                 status=429,
                 headers={
                     response_header_name: '0.2',
                 },
             )
-            mock.post(
+            mock_responses.post(
                 conf['before_subscribe'],
                 payload={
                     'status': 'ok',
@@ -2103,41 +2160,41 @@ class TestThrottle:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'one'},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'bar': 'one'},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'invalid': 'one'},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'unthrottled': 'one'},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'unthrottled': 'two'},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
         ]
         client.log = []
@@ -2150,7 +2207,7 @@ class TestThrottle:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'three'},
-                'sent_at': ANY,
+                'sent_at': mock.ANY,
             }
         ]
         client.log = []
@@ -2178,9 +2235,9 @@ class TestThrottle:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'four'},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             }
         ]
 
@@ -2243,9 +2300,9 @@ class TestThrottle:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'one'},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             }
         ]
 
@@ -2320,9 +2377,9 @@ class TestThrottle:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'one'},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             }
         ]
         client.log = []
@@ -2369,7 +2426,7 @@ class TestThrottle:
             'event': 'message',
             'subscription': subscription,
             'data': {'foo': 'two'},
-            'sent_at': ANY,
+            'sent_at': mock.ANY,
         }
 
         if throttle - wait > 0:
@@ -2383,7 +2440,7 @@ class TestThrottle:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'three'},
-                'sent_at': ANY,
+                'sent_at': mock.ANY,
             }
         ]
 
@@ -2422,7 +2479,7 @@ class TestWebsocket:
             await asyncio.sleep(0.1)
 
             aiosession = aiohttp.ClientSession()
-            mock = aioresponses()
+            mock_responses = aioresponses()
             conf = TEST_CONFIG['SERVICES']['ws_test']
 
             async with aiosession.ws_connect(self.ws_url) as ws:
@@ -2445,15 +2502,17 @@ class TestWebsocket:
 
                 # Start mocking here (if we started mocking earlier we wouldn't
                 # be able to use aiohttp to connect to the WebSocket).
-                mock.start()
-                mock.post(conf['on_unsubscribe'], payload={})
+                mock_responses.start()
+                mock_responses.post(conf['on_unsubscribe'], payload={})
 
             await aiosession.close()
 
             # Wait until backend learns about the disconnected WebSocket.
             await asyncio.sleep(0.1)
-            mock.stop()
-            requests = mock.requests[('POST', URL(conf['on_unsubscribe']))]
+            mock_responses.stop()
+            requests = mock_responses.requests[
+                ('POST', URL(conf['on_unsubscribe']))
+            ]
             assert len(requests) == 1
             assert requests[0].kwargs['json'] == {
                 'subscription': 'ws_test.hello'
@@ -2473,7 +2532,7 @@ class TestWebsocket:
         """
         Make sure we call unsubscribe callbacks when shutting down.
         """
-        mock = aioresponses()
+        mock_responses = aioresponses()
         conf = TEST_CONFIG['SERVICES']['ws_test']
 
         async def task():
@@ -2500,8 +2559,8 @@ class TestWebsocket:
                     'status': 'ok',
                 }
 
-                mock.start()
-                mock.post(conf['on_unsubscribe'], payload={})
+                mock_responses.start()
+                mock_responses.post(conf['on_unsubscribe'], payload={})
 
                 asyncio.ensure_future(shark.shutdown())
 
@@ -2514,9 +2573,11 @@ class TestWebsocket:
         shark = SocketShark(TEST_CONFIG)
         asyncio.ensure_future(task())
         shark.start()
-        mock.stop()
+        mock_responses.stop()
 
-        requests = mock.requests[('POST', URL(conf['on_unsubscribe']))]
+        requests = mock_responses.requests[
+            ('POST', URL(conf['on_unsubscribe']))
+        ]
         assert len(requests) == 1
         assert requests[0].kwargs['json'] == {'subscription': 'ws_test.hello'}
 
@@ -2526,7 +2587,7 @@ class TestWebsocket:
         """
         # Pretend we have a subscription that takes a long time to close (so
         # we can sneak in a connection attempt).
-        mock = aioresponses_delayed()
+        mock_responses = aioresponses_delayed()
         conf = TEST_CONFIG['SERVICES']['ws_test']
 
         async def task():
@@ -2553,8 +2614,8 @@ class TestWebsocket:
                     'status': 'ok',
                 }
 
-                mock.start()
-                mock.post(conf['on_unsubscribe'], payload={})
+                mock_responses.start()
+                mock_responses.post(conf['on_unsubscribe'], payload={})
 
                 asyncio.ensure_future(shark.shutdown())
 
@@ -2566,7 +2627,7 @@ class TestWebsocket:
                 # stopping the patcher.
                 await asyncio.sleep(0.1)
 
-                mock.stop()
+                mock_responses.stop()
 
             # Attempt a new connection.
             with pytest.raises(aiohttp.ClientConnectionError):
@@ -2580,7 +2641,9 @@ class TestWebsocket:
         shark.start()
         test_task.result()  # Raise any exceptions
 
-        requests = mock.requests[('POST', URL(conf['on_unsubscribe']))]
+        requests = mock_responses.requests[
+            ('POST', URL(conf['on_unsubscribe']))
+        ]
         assert len(requests) == 1
         assert requests[0].kwargs['json'] == {'subscription': 'ws_test.hello'}
 
@@ -2723,9 +2786,9 @@ class TestWebsocket:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'baz': 'new'},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             }
 
             redis.close()
@@ -2848,17 +2911,17 @@ class TestRedisConnection:
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'foo': 'one'},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
             {
                 'event': 'message',
                 'subscription': subscription,
                 'data': {'bar': 'one'},
-                'received_at': ANY,
-                'queue_size': ANY,
-                'sent_at': ANY,
+                'received_at': mock.ANY,
+                'queue_size': mock.ANY,
+                'sent_at': mock.ANY,
             },
         ]
 
