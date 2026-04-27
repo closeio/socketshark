@@ -103,11 +103,11 @@ class ServiceReceiver:
 
     async def _reader_for_connection(self, connection, once=False):
         prefix_length = len(connection.channel_prefix)
-        queue_size = connection.redis_receiver._queue.qsize()
-        if once and not queue_size:
+        if once and not connection.redis_receiver._queue.qsize():
             return False
 
         while True:
+            queue_size = connection.redis_receiver._queue.qsize()
             data = await connection.redis_receiver.get()
             received_at = datetime.datetime.now(datetime.timezone.utc)
             channel, msg = data
