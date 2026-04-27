@@ -9,6 +9,7 @@ import aiohttp
 import aioredis
 import pytest
 from aioresponses import aioresponses
+from structlog.testing import capture_logs
 from yarl import URL
 
 from socketshark import (
@@ -257,6 +258,33 @@ class TestSession:
             'error': c.ERR_AUTH_UNSUPPORTED,
         }
         assert not client.log
+
+    @pytest.mark.asyncio
+    async def test_auth_invalid_emits_structlog_logs(self):
+        shark = SocketShark(TEST_CONFIG)
+        session = MockClient(shark).session
+        with capture_logs() as structlog_logs:
+            await session.on_client_event({'event': 'auth', 'method': 'x'})
+        assert structlog_logs == [
+            {
+                'log_level': 'debug',
+                'event': 'client event',
+                'data': {'event': 'auth', 'method': 'x'},
+                'pid': mock.ANY,
+                'session': mock.ANY,
+            },
+            {
+                'log_level': 'debug',
+                'event': 'client send',
+                'data': {
+                    'error': 'Authentication method unsupported.',
+                    'event': 'auth',
+                    'status': 'error',
+                },
+                'pid': mock.ANY,
+                'session': mock.ANY,
+            },
+        ]
 
     @pytest.mark.asyncio
     async def test_auth_ticket(self):
