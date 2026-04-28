@@ -111,12 +111,68 @@ class ServiceReceiver:
         finally:
             ping_handler.cancel()
 
+    async def _handle_service_event(
+        self,
+        session: Session,
+        data: ServiceEventData,
+        received_at: datetime.datetime,
+        queue_size: int,
+    ) -> None:
+        try:
+            await session.on_service_event(
+                data, received_at=received_at, queue_size=queue_size
+            )
+        except Exception:
+            self.shark.log.exception('unhandled exception in receiver')
+
+    def _dispatch_service_event(
+        self,
+        service_event: ServiceEventData,
+        subscription_name: SubscriptionName,
+        received_at: datetime.datetime,
+        queue_size: int,
+    ) -> list['asyncio.Task[None]']:
+        """
+        Dispatch handling the given service event.
+
+        Note that this truly *dispatches* the handling, meaning it does not
+        block till the handling is complete. That said, all asyncio Tasks are
+        returned to the caller, so the caller can await them if desired.
+        """
+        self.shark.trace_log.debug('service event', data=service_event)
+
+        # The subscription arrays may change during execution, therefore we
+        # create a snapshot before looping.
+        confirmed_sessions = list(
+            self.confirmed_subscriptions[subscription_name]
+        )
+        provisional_sessions = list(
+            self.provisional_subscriptions[subscription_name]
+        )
+        tasks = [
+            asyncio.create_task(
+                self._handle_service_event(
+                    session, service_event, received_at, queue_size
+                )
+            )
+            for session in confirmed_sessions
+        ]
+        for session in provisional_sessions:
+            self.provisional_events[session].append(service_event)
+        return tasks
+
     async def _reader_for_connection(
         self, connection: RedisConnection, once: bool = False
     ) -> bool | None:
         prefix_length = len(connection.channel_prefix)
         if once and not connection.redis_receiver._queue.qsize():
             return False
+
+        # Track in-flight tasks so we can drain them before returning.
+        # Completed tasks remove themselves via the done callback, so the set
+        # only ever contains tasks that are still running.
+        pending_tasks: set[asyncio.Task[None]] = set()
+        result: bool | None = None
 
         while True:
             queue_size = connection.redis_receiver._queue.qsize()
@@ -125,34 +181,31 @@ class ServiceReceiver:
             channel, event_json_bytes = redis_event
             if channel == connection.stop_channel:
                 break
+
             subscription_name = SubscriptionName(
                 channel.name.decode()[prefix_length:]
             )
             try:
-                data = json.loads(event_json_bytes.decode())
-                self.shark.trace_log.debug('service event', data=data)
-                # The subscription arrays may change while executing
-                # on_service_event. We therefore create a snapshot before
-                # looping.
-                confirmed_sessions = list(
-                    self.confirmed_subscriptions[subscription_name]
+                service_event = ServiceEventData(
+                    json.loads(event_json_bytes.decode())
                 )
-                provisional_sesssions = list(
-                    self.provisional_subscriptions[subscription_name]
+                tasks = self._dispatch_service_event(
+                    service_event, subscription_name, received_at, queue_size
                 )
-                for session in confirmed_sessions:
-                    await session.on_service_event(
-                        data, received_at=received_at, queue_size=queue_size
-                    )
-                for session in provisional_sesssions:
-                    self.provisional_events[session].append(data)
+                for task in tasks:
+                    pending_tasks.add(task)
+                    task.add_done_callback(pending_tasks.discard)
             except json.decoder.JSONDecodeError:
                 self.shark.log.exception('JSONDecodeError')
             except Exception:
                 self.shark.log.exception('unhandled exception in receiver')
             if once and not connection.redis_receiver._queue.qsize():
-                return True
-        return None
+                result = True
+                break
+
+        if pending_tasks:
+            await asyncio.gather(*pending_tasks)
+        return result
 
     async def add_provisional_subscription(
         self, session: Session, subscription_name: SubscriptionName
