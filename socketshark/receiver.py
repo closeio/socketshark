@@ -126,9 +126,9 @@ class ServiceReceiver:
 
         while True:
             queue_size = connection.redis_receiver._queue.qsize()
-            data = await connection.redis_receiver.get()
+            redis_event = await connection.redis_receiver.get()
             received_at = datetime.datetime.now(datetime.timezone.utc)
-            channel, msg = data
+            channel, msg = redis_event
             if channel == connection.stop_channel:
                 break
             subscription = SubscriptionName(
