@@ -114,13 +114,13 @@ class ServiceReceiver:
     async def _handle_service_event(
         self,
         session: Session,
-        data: ServiceEventData,
+        service_event: ServiceEventData,
         received_at: datetime.datetime,
         queue_size: int,
     ) -> None:
         try:
             await session.on_service_event(
-                data, received_at=received_at, queue_size=queue_size
+                service_event, received_at=received_at, queue_size=queue_size
             )
         except Exception:
             self.shark.log.exception('unhandled exception in receiver')
@@ -236,8 +236,8 @@ class ServiceReceiver:
 
         # Flush provisional messages
         events = self.provisional_events.pop(session, [])
-        for data in events:
-            await session.on_service_event(data)
+        for event in events:
+            await session.on_service_event(event)
 
     async def delete_subscription(
         self, session: Session, subscription_name: SubscriptionName
