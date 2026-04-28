@@ -1,6 +1,7 @@
 from unittest import mock
 
 import pytest
+from structlog.testing import capture_logs
 
 from socketshark import SocketShark, config_defaults
 from socketshark.metrics import Metrics
@@ -45,3 +46,42 @@ class TestMetrics:
         shark = SocketShark(TEST_CONFIG)
         metrics = Metrics(shark)
         assert metrics.providers == {}
+
+
+class TestLogMetrics:
+    @pytest.fixture
+    def log_metrics(self):
+        config = TEST_CONFIG.copy()
+        config['METRICS'] = {'log': {}}
+        shark = SocketShark(config)
+        return LogMetrics(shark, {})
+
+    def test_it_logs_on_connection_count_increase(self, log_metrics):
+        with capture_logs() as structlog_logs:
+            log_metrics.increase_connection_count()
+        assert structlog_logs == [
+            {
+                'log_level': 'debug',
+                'event': 'metrics',
+                'active_connections': 1,
+                'total_connections': 1,
+                'pid': mock.ANY,
+            }
+        ]
+
+    def test_it_logs_on_connection_count_decrease(self, log_metrics):
+        log_metrics.connection_count = 2
+        log_metrics.active_connections = 2
+
+        with capture_logs() as structlog_logs:
+            log_metrics.decrease_connection_count()
+
+        assert structlog_logs == [
+            {
+                'log_level': 'debug',
+                'event': 'metrics',
+                'active_connections': 1,
+                'total_connections': 2,
+                'pid': mock.ANY,
+            }
+        ]
