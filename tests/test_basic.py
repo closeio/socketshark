@@ -282,6 +282,77 @@ class TestSession:
         ]
 
     @pytest.mark.asyncio
+    async def test_invalid_event_emits_structlog_logs(self):
+        shark = SocketShark(TEST_CONFIG)
+        session = MockClient(shark).session
+        with capture_logs() as structlog_logs:
+            await session.on_service_event({'invalid': 'event'})
+        assert structlog_logs == [
+            {
+                'log_level': 'warning',
+                'event': 'invalid service event',
+                'data': {'invalid': 'event'},
+                'pid': mock.ANY,
+                'session': mock.ANY,
+            },
+        ]
+
+    @pytest.mark.asyncio
+    async def test_invalid_published_at_is_handled_gracefully(self):
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': 'simple.topic',
+            }
+        )
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'subscription': 'simple.topic',
+            'status': 'ok',
+        }
+
+        with capture_logs() as structlog_logs:
+            await session.on_service_event(
+                {
+                    'subscription': 'simple.topic',
+                    'data': {'foo': 'bar'},
+                    'published_at': 'not-a-date',
+                }
+            )
+
+        assert structlog_logs == [
+            {
+                'log_level': 'warning',
+                'event': 'invalid published_at format',
+                'published_at': 'not-a-date',
+                'session': mock.ANY,
+                'pid': mock.ANY,
+            },
+            # The message is still expected to be sent. An invalid
+            # `published_at` should not break the entire end-to-end messaging
+            # flow .
+            {
+                'log_level': 'debug',
+                'event': 'client send',
+                'data': {
+                    'subscription': 'simple.topic',
+                    'event': 'message',
+                    'data': {'foo': 'bar'},
+                    'sent_at': mock.ANY,
+                },
+                'pid': mock.ANY,
+                'session': mock.ANY,
+            },
+        ]
+
+        await shark.shutdown()
+
+    @pytest.mark.asyncio
     async def test_auth_ticket(self):
         """
         Test ticket authentication.
