@@ -122,14 +122,14 @@ class ServiceReceiver:
             queue_size = connection.redis_receiver._queue.qsize()
             redis_event = await connection.redis_receiver.get()
             received_at = datetime.datetime.now(datetime.timezone.utc)
-            channel, msg = redis_event
+            channel, event_json_bytes = redis_event
             if channel == connection.stop_channel:
                 break
             subscription_name = SubscriptionName(
                 channel.name.decode()[prefix_length:]
             )
             try:
-                data = json.loads(msg.decode())
+                data = json.loads(event_json_bytes.decode())
                 self.shark.trace_log.debug('service event', data=data)
                 # The subscription arrays may change while executing
                 # on_service_event. We therefore create a snapshot before
