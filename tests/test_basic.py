@@ -12,12 +12,7 @@ from aioresponses import aioresponses
 from structlog.testing import capture_logs
 from yarl import URL
 
-from socketshark import (
-    SocketShark,
-    config_defaults,
-    constants as c,
-    setup_logging,
-)
+from socketshark import SocketShark, config_defaults, setup_logging
 from socketshark.session import Session
 
 LOCAL_REDIS_HOST = os.environ.get('LOCAL_REDIS_HOST')
@@ -193,39 +188,39 @@ class TestSession:
         await session.on_client_event(None)
         assert client.log.pop() == {
             'status': 'error',
-            'error': c.ERR_INVALID_EVENT,
+            'error': 'Messages must be JSON and contain an event field.',
         }
 
         await session.on_client_event('hello')
         assert client.log.pop() == {
             'status': 'error',
-            'error': c.ERR_INVALID_EVENT,
+            'error': 'Messages must be JSON and contain an event field.',
         }
 
         await session.on_client_event({})
         assert client.log.pop() == {
             'status': 'error',
-            'error': c.ERR_INVALID_EVENT,
+            'error': 'Messages must be JSON and contain an event field.',
         }
 
         await session.on_client_event({'event': None})
         assert client.log.pop() == {
             'status': 'error',
-            'error': c.ERR_INVALID_EVENT,
+            'error': 'Messages must be JSON and contain an event field.',
         }
 
         await session.on_client_event({'event': ''})
         assert client.log.pop() == {
             'status': 'error',
             'event': '',
-            'error': c.ERR_EVENT_NOT_FOUND,
+            'error': 'Event not found.',
         }
 
         await session.on_client_event({'event': 'hello'})
         assert client.log.pop() == {
             'status': 'error',
             'event': 'hello',
-            'error': c.ERR_EVENT_NOT_FOUND,
+            'error': 'Event not found.',
         }
 
         assert not client.log
@@ -243,7 +238,7 @@ class TestSession:
         assert client.log.pop() == {
             'status': 'error',
             'event': 'auth',
-            'error': c.ERR_AUTH_UNSUPPORTED,
+            'error': 'Authentication method unsupported.',
         }
 
         no_auth_config = TEST_CONFIG.copy()
@@ -255,7 +250,7 @@ class TestSession:
         assert client.log.pop() == {
             'status': 'error',
             'event': 'auth',
-            'error': c.ERR_AUTH_UNSUPPORTED,
+            'error': 'Authentication method unsupported.',
         }
         assert not client.log
 
@@ -287,6 +282,77 @@ class TestSession:
         ]
 
     @pytest.mark.asyncio
+    async def test_invalid_event_emits_structlog_logs(self):
+        shark = SocketShark(TEST_CONFIG)
+        session = MockClient(shark).session
+        with capture_logs() as structlog_logs:
+            await session.on_service_event({'invalid': 'event'})
+        assert structlog_logs == [
+            {
+                'log_level': 'warning',
+                'event': 'invalid service event',
+                'data': {'invalid': 'event'},
+                'pid': mock.ANY,
+                'session': mock.ANY,
+            },
+        ]
+
+    @pytest.mark.asyncio
+    async def test_invalid_published_at_is_handled_gracefully(self):
+        shark = SocketShark(TEST_CONFIG)
+        await shark.prepare()
+        client = MockClient(shark)
+        session = client.session
+
+        await session.on_client_event(
+            {
+                'event': 'subscribe',
+                'subscription': 'simple.topic',
+            }
+        )
+        assert client.log.pop() == {
+            'event': 'subscribe',
+            'subscription': 'simple.topic',
+            'status': 'ok',
+        }
+
+        with capture_logs() as structlog_logs:
+            await session.on_service_event(
+                {
+                    'subscription': 'simple.topic',
+                    'data': {'foo': 'bar'},
+                    'published_at': 'not-a-date',
+                }
+            )
+
+        assert structlog_logs == [
+            {
+                'log_level': 'warning',
+                'event': 'invalid published_at format',
+                'published_at': 'not-a-date',
+                'session': mock.ANY,
+                'pid': mock.ANY,
+            },
+            # The message is still expected to be sent. An invalid
+            # `published_at` should not break the entire end-to-end messaging
+            # flow .
+            {
+                'log_level': 'debug',
+                'event': 'client send',
+                'data': {
+                    'subscription': 'simple.topic',
+                    'event': 'message',
+                    'data': {'foo': 'bar'},
+                    'sent_at': mock.ANY,
+                },
+                'pid': mock.ANY,
+                'session': mock.ANY,
+            },
+        ]
+
+        await shark.shutdown()
+
+    @pytest.mark.asyncio
     async def test_auth_ticket(self):
         """
         Test ticket authentication.
@@ -299,14 +365,14 @@ class TestSession:
         assert client.log.pop() == {
             'status': 'error',
             'event': 'auth',
-            'error': c.ERR_NEEDS_TICKET,
+            'error': 'Must specify ticket.',
         }
 
         await session.on_client_event({'event': 'auth', 'method': 'ticket'})
         assert client.log.pop() == {
             'status': 'error',
             'event': 'auth',
-            'error': c.ERR_NEEDS_TICKET,
+            'error': 'Must specify ticket.',
         }
 
         with aioresponses() as mock_responses:
@@ -321,7 +387,7 @@ class TestSession:
             assert client.log.pop() == {
                 'status': 'error',
                 'event': 'auth',
-                'error': c.ERR_SERVICE_UNAVAILABLE,
+                'error': 'Service unavailable.',
             }
 
         with aioresponses() as mock_responses:
@@ -359,7 +425,7 @@ class TestSession:
             assert client.log.pop() == {
                 'status': 'error',
                 'event': 'auth',
-                'error': c.ERR_AUTH_FAILED,
+                'error': 'Authentication failed.',
             }
 
             assert session.auth_info == {}
@@ -412,7 +478,7 @@ class TestSession:
         assert client.log.pop() == {
             'event': 'subscribe',
             'status': 'error',
-            'error': c.ERR_INVALID_SUBSCRIPTION_FORMAT,
+            'error': 'Invalid subscription format.',
         }
 
         await session.on_client_event(
@@ -422,7 +488,7 @@ class TestSession:
             'event': 'subscribe',
             'subscription': 'invalid',
             'status': 'error',
-            'error': c.ERR_INVALID_SUBSCRIPTION_FORMAT,
+            'error': 'Invalid subscription format.',
         }
 
         await session.on_client_event(
@@ -432,7 +498,7 @@ class TestSession:
             'event': 'subscribe',
             'subscription': 'invalid.topic',
             'status': 'error',
-            'error': c.ERR_INVALID_SERVICE,
+            'error': 'Invalid service.',
         }
 
         assert not client.log
@@ -456,7 +522,7 @@ class TestSession:
             'event': 'subscribe',
             'subscription': 'empty.topic',
             'status': 'error',
-            'error': c.ERR_AUTH_REQUIRED,
+            'error': 'Authentication required.',
         }
 
         assert not client.log
@@ -490,7 +556,7 @@ class TestSession:
             'event': 'subscribe',
             'subscription': 'simple.topic',
             'status': 'error',
-            'error': c.ERR_ALREADY_SUBSCRIBED,
+            'error': 'Already subscribed.',
         }
 
         await session.on_client_event(
@@ -504,7 +570,7 @@ class TestSession:
             'status': 'error',
             'subscription': 'simple.invalid',
             'event': 'message',
-            'error': c.ERR_SUBSCRIPTION_NOT_FOUND,
+            'error': 'Subscription does not exist.',
         }
 
         await session.on_client_event(
@@ -517,7 +583,7 @@ class TestSession:
             'event': 'unsubscribe',
             'subscription': 'simple.invalid',
             'status': 'error',
-            'error': c.ERR_SUBSCRIPTION_NOT_FOUND,
+            'error': 'Subscription does not exist.',
         }
 
         await shark.shutdown()
@@ -679,7 +745,7 @@ class TestSession:
             'event': 'subscribe',
             'subscription': 'simple_auth.topic',
             'status': 'error',
-            'error': c.ERR_AUTH_REQUIRED,
+            'error': 'Authentication required.',
         }
 
         await self._auth_session(session)
@@ -775,7 +841,7 @@ class TestSession:
             'event': 'subscribe',
             'subscription': 'authorizer.topic',
             'status': 'error',
-            'error': c.ERR_AUTH_REQUIRED,
+            'error': 'Authentication required.',
         }
 
         await self._auth_session(session)
@@ -792,7 +858,7 @@ class TestSession:
                 'event': 'subscribe',
                 'subscription': 'authorizer.topic',
                 'status': 'error',
-                'error': c.ERR_SERVICE_UNAVAILABLE,
+                'error': 'Service unavailable.',
             }
 
         with aioresponses() as mock_responses:
@@ -831,7 +897,7 @@ class TestSession:
                 'event': 'subscribe',
                 'subscription': 'authorizer.topic',
                 'status': 'error',
-                'error': c.ERR_UNAUTHORIZED,
+                'error': 'Unauthorized.',
             }
 
             await session.on_client_event(
@@ -1023,7 +1089,7 @@ class TestSession:
             assert client.log.pop(0) == {
                 'event': 'unsubscribe',
                 'subscription': 'periodic_authorizer.topic',
-                'error': c.ERR_UNAUTHORIZED,
+                'error': 'Unauthorized.',
             }
 
             assert client.log.pop(0) == {
@@ -1182,7 +1248,7 @@ class TestSession:
                 'event': 'subscribe',
                 'subscription': 'complex.topic',
                 'status': 'error',
-                'error': c.ERR_UNHANDLED_EXCEPTION,
+                'error': 'Unhandled exception.',
             }
 
             mock_responses.post(conf['authorizer'], payload={'status': 'ok'})
@@ -1433,7 +1499,7 @@ class TestSession:
                 'subscription': 'complex.topic',
                 'status': 'error',
                 'extra': 'hello',
-                'error': c.ERR_UNHANDLED_EXCEPTION,
+                'error': 'Unhandled exception.',
             }
 
             await session.on_client_event(
