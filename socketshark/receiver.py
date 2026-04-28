@@ -22,18 +22,12 @@ class ServiceReceiver:
         self.shark = shark
 
         self.subscriptions: set[SubscriptionName] = set()
-
-        # {subscription: [sessions]}
         self.provisional_subscriptions: defaultdict[
             SubscriptionName, set[Session]
         ] = defaultdict(set)
-
-        # {session: [msgs]}
         self.provisional_events: defaultdict[
             Session, list[ServiceEventData]
         ] = defaultdict(list)
-
-        # {subscription: [sessions]}
         self.confirmed_subscriptions: defaultdict[
             SubscriptionName, set[Session]
         ] = defaultdict(set)
