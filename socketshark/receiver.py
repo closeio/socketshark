@@ -131,7 +131,7 @@ class ServiceReceiver:
             channel, msg = redis_event
             if channel == connection.stop_channel:
                 break
-            subscription = SubscriptionName(
+            subscription_name = SubscriptionName(
                 channel.name.decode()[prefix_length:]
             )
             try:
@@ -141,10 +141,10 @@ class ServiceReceiver:
                 # on_service_event. We therefore create a snapshot before
                 # looping.
                 confirmed_sessions = list(
-                    self.confirmed_subscriptions[subscription]
+                    self.confirmed_subscriptions[subscription_name]
                 )
                 provisional_sesssions = list(
-                    self.provisional_subscriptions[subscription]
+                    self.provisional_subscriptions[subscription_name]
                 )
                 for session in confirmed_sessions:
                     await session.on_service_event(
@@ -161,31 +161,31 @@ class ServiceReceiver:
         return None
 
     async def add_provisional_subscription(
-        self, session: Session, subscription: SubscriptionName
+        self, session: Session, subscription_name: SubscriptionName
     ) -> None:
-        if subscription not in self.subscriptions:
-            self.subscriptions.add(subscription)
+        if subscription_name not in self.subscriptions:
+            self.subscriptions.add(subscription_name)
             await asyncio.gather(
                 *[
                     c.redis.subscribe(
                         c.redis_receiver.channel(
-                            self._channel(c, subscription)
+                            self._channel(c, subscription_name)
                         )
                     )
                     for c in self.redis_connections
                 ]
             )
-        self.provisional_subscriptions[subscription].add(session)
+        self.provisional_subscriptions[subscription_name].add(session)
 
     async def confirm_subscription(
-        self, session: Session, subscription: SubscriptionName
+        self, session: Session, subscription_name: SubscriptionName
     ) -> None:
-        self.confirmed_subscriptions[subscription].add(session)
-        self.provisional_subscriptions[subscription].remove(session)
+        self.confirmed_subscriptions[subscription_name].add(session)
+        self.provisional_subscriptions[subscription_name].remove(session)
 
         # Clear empty set
-        if not self.provisional_subscriptions[subscription]:
-            del self.provisional_subscriptions[subscription]
+        if not self.provisional_subscriptions[subscription_name]:
+            del self.provisional_subscriptions[subscription_name]
 
         # Flush provisional messages
         events = self.provisional_events.pop(session, [])
@@ -193,26 +193,26 @@ class ServiceReceiver:
             await session.on_service_event(data)
 
     async def delete_subscription(
-        self, session: Session, subscription: SubscriptionName
+        self, session: Session, subscription_name: SubscriptionName
     ) -> None:
-        conf_set = self.confirmed_subscriptions[subscription]
+        conf_set = self.confirmed_subscriptions[subscription_name]
         conf_set.discard(session)
-        prov_set = self.provisional_subscriptions[subscription]
+        prov_set = self.provisional_subscriptions[subscription_name]
         prov_set.discard(session)
 
         # Clear empty set
         if not conf_set:
-            del self.confirmed_subscriptions[subscription]
+            del self.confirmed_subscriptions[subscription_name]
         if not prov_set:
-            del self.provisional_subscriptions[subscription]
+            del self.provisional_subscriptions[subscription_name]
 
         if not conf_set and not prov_set:
-            self.subscriptions.remove(subscription)
+            self.subscriptions.remove(subscription_name)
             await asyncio.gather(
                 *[
                     c.redis.unsubscribe(
                         c.redis_receiver.channel(
-                            self._channel(c, subscription)
+                            self._channel(c, subscription_name)
                         )
                     )
                     for c in self.redis_connections
