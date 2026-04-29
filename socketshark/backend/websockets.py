@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class Client:
     def __init__(
         self,
-        shark: 'SocketShark',
+        shark: "SocketShark",
         websocket: websockets.WebSocketServerProtocol,
     ) -> None:
         self.websocket = websocket
@@ -24,26 +24,26 @@ class Client:
             shark,
             self,
             info={
-                'remote': websocket.remote_address,
+                "remote": websocket.remote_address,
             },
         )
         self.shark = shark
 
     async def ping_timeout_handler(self, ping: asyncio.Future[None]) -> bool:
-        ping_timeout = self.shark.config['WS_PING']['timeout']
+        ping_timeout = self.shark.config["WS_PING"]["timeout"]
         await asyncio.sleep(ping_timeout)
 
         # If we haven't received a pong after sleeping for `ping_timeout`,
         # consider the connection broken and close it.
         if not ping.done():
-            self.session.log.warn('ping timeout')
+            self.session.log.warn("ping timeout")
             await self.close()
             return True
 
         return False
 
     async def ping_handler(self) -> None:
-        ping_interval = self.shark.config['WS_PING']['interval']
+        ping_interval = self.shark.config["WS_PING"]["interval"]
         if not ping_interval:
             return
 
@@ -53,7 +53,7 @@ class Client:
             # time into account.
             await asyncio.sleep(ping_interval - latency)
 
-            self.session.trace_log.debug('ping')
+            self.session.trace_log.debug("ping")
             start_time = time.time()
             try:
                 ping = await self.websocket.ping()
@@ -65,7 +65,7 @@ class Client:
             )
             await ping
             latency = time.time() - start_time
-            self.session.trace_log.debug('pong', latency=round(latency, 3))
+            self.session.trace_log.debug("pong", latency=round(latency, 3))
 
             # Return immediately if a ping timeout occurred.
             if not timeout_handler.cancel() and timeout_handler.result():
@@ -80,7 +80,7 @@ class Client:
                     try:
                         data = json.loads(event)
                     except json.decoder.JSONDecodeError:
-                        self.session.log.warn('received invalid json')
+                        self.session.log.warn("received invalid json")
                         await self.send(
                             ClientMessage(
                                 {
@@ -96,20 +96,20 @@ class Client:
 
             ping_handler.cancel()
         except Exception:
-            self.session.log.exception('unhandled error in consumer handler')
+            self.session.log.exception("unhandled error in consumer handler")
 
     async def send(self, event: ClientMessage) -> None:
         try:
             await self.websocket.send(json.dumps(event))
         except websockets.ConnectionClosed:
-            self.session.log.warn('attempted to send to closed socket')
+            self.session.log.warn("attempted to send to closed socket")
 
     async def close(self) -> None:
         await self.websocket.close()
 
 
 class Backend:
-    def __init__(self, shark: 'SocketShark') -> None:
+    def __init__(self, shark: "SocketShark") -> None:
         self.shark = shark
         self.server: websockets.WebSocketServer | None = None
         self._closed: bool = False
@@ -144,7 +144,7 @@ class Backend:
             # them immediately.
             if self._closed:
                 self.shark.log.warn(
-                    'dropped connection', remote=websocket.remote_address
+                    "dropped connection", remote=websocket.remote_address
                 )
                 return
             client = Client(self.shark, websocket)
@@ -155,7 +155,7 @@ class Backend:
         loop.run_until_complete(self.shark.prepare())
         ssl_context = self.shark.get_ssl_context()
         start_server = websockets.serve(
-            serve, config['WS_HOST'], config['WS_PORT'], ssl=ssl_context
+            serve, config["WS_HOST"], config["WS_PORT"], ssl=ssl_context
         )
         self.server = loop.run_until_complete(start_server)
         self.shark.signal_ready()

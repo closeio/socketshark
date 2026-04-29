@@ -12,10 +12,10 @@ class Metrics:
     Main metrics class. Proxies events to configured metrics providers.
     """
 
-    def __init__(self, shark: 'SocketShark') -> None:
+    def __init__(self, shark: "SocketShark") -> None:
         self.shark = shark
         metrics_config: dict[str, MetricsProviderConfig] = shark.config[
-            'METRICS'
+            "METRICS"
         ]
         self.providers: dict[str, Any] = {
             provider: self._get_provider(provider, settings)
@@ -25,15 +25,15 @@ class Metrics:
     def _get_provider(
         self, provider: str, settings: MetricsProviderConfig
     ) -> Any:
-        metrics_module = f'socketshark.metrics.{provider}'
+        metrics_module = f"socketshark.metrics.{provider}"
         module = importlib.import_module(metrics_module)
-        cls_name = f'{provider.capitalize()}Metrics'
+        cls_name = f"{provider.capitalize()}Metrics"
         cls = getattr(module, cls_name)
         return cls(self.shark, settings)
 
     def initialize(self) -> None:
         for name, provider in self.providers.items():
-            self.shark.log.info('initializing metrics', provider=name)
+            self.shark.log.info("initializing metrics", provider=name)
             provider.initialize()
 
     def decrease_connection_count(self) -> None:

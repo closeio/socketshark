@@ -18,7 +18,7 @@ class ServiceReceiver:
     Receives messages from services and forwards them to subscribing sessions.
     """
 
-    def __init__(self, shark: 'SocketShark') -> None:
+    def __init__(self, shark: "SocketShark") -> None:
         self.shark = shark
 
         self.subscriptions: set[SubscriptionName] = set()
@@ -59,7 +59,7 @@ class ServiceReceiver:
                 # Sleep before pings
                 await asyncio.sleep(ping_interval - latency)
 
-                self.shark.trace_log.debug('redis ping')
+                self.shark.trace_log.debug("redis ping")
 
                 start_time = time.time()
 
@@ -73,13 +73,13 @@ class ServiceReceiver:
                 if ping and ping in pending:
                     # Ping timeout
                     ping.cancel()
-                    self.shark.log.warn('redis ping timeout')
+                    self.shark.log.warn("redis ping timeout")
                     self._stop = True
                     break
 
                 latency = time.time() - start_time
                 self.shark.trace_log.debug(
-                    'redis pong', latency=round(latency, 3)
+                    "redis pong", latency=round(latency, 3)
                 )
 
         except asyncio.CancelledError:  # Cancelled by ping_handler.cancel()
@@ -87,9 +87,9 @@ class ServiceReceiver:
                 ping.cancel()
             if wait:
                 wait.cancel()
-            self.shark.log.debug('redis ping handler cancelled')
+            self.shark.log.debug("redis ping handler cancelled")
         except Exception:
-            self.shark.log.exception('unhandled exception in ping handler')
+            self.shark.log.exception("unhandled exception in ping handler")
             self._stop = True
         finally:
             if self._stop:
@@ -106,7 +106,7 @@ class ServiceReceiver:
             result = await asyncio.gather(*tasks)
             return result
         except Exception:
-            self.shark.log.exception('unhandled exception in receiver')
+            self.shark.log.exception("unhandled exception in receiver")
             return None
         finally:
             ping_handler.cancel()
@@ -123,7 +123,7 @@ class ServiceReceiver:
                 service_event, received_at=received_at, queue_size=queue_size
             )
         except Exception:
-            self.shark.log.exception('unhandled exception in receiver')
+            self.shark.log.exception("unhandled exception in receiver")
 
     def _dispatch_service_event(
         self,
@@ -131,7 +131,7 @@ class ServiceReceiver:
         subscription_name: SubscriptionName,
         received_at: datetime.datetime,
         queue_size: int,
-    ) -> list['asyncio.Task[None]']:
+    ) -> list["asyncio.Task[None]"]:
         """
         Dispatch handling the given service event.
 
@@ -139,7 +139,7 @@ class ServiceReceiver:
         block till the handling is complete. That said, all asyncio Tasks are
         returned to the caller, so the caller can await them if desired.
         """
-        self.shark.trace_log.debug('service event', data=service_event)
+        self.shark.trace_log.debug("service event", data=service_event)
 
         # The subscription arrays may change during execution, therefore we
         # create a snapshot before looping.
@@ -196,9 +196,9 @@ class ServiceReceiver:
                     pending_tasks.add(task)
                     task.add_done_callback(pending_tasks.discard)
             except json.decoder.JSONDecodeError:
-                self.shark.log.exception('JSONDecodeError')
+                self.shark.log.exception("JSONDecodeError")
             except Exception:
-                self.shark.log.exception('unhandled exception in receiver')
+                self.shark.log.exception("unhandled exception in receiver")
             if once and not connection.redis_receiver._queue.qsize():
                 result = True
                 break

@@ -1,58 +1,58 @@
 from setuptools import setup
 
-with open('README.rst', encoding='utf-8') as file:
+with open("README.rst", encoding="utf-8") as file:
     long_description = file.read()
 
 
 install_requires = [
-    'aiohttp',
-    'aioredis',
-    'click',
-    'structlog',
-    'websockets',
+    "aiohttp",
+    "aioredis",
+    "click",
+    "structlog",
+    "websockets",
 ]
 
 tests_require = install_requires + [
-    'aioresponses',
-    'pytest',
-    'pytest-asyncio',
-    'ruff',
+    "aioresponses",
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
 ]
 
 setup(
-    name='socketshark',
-    version='0.5.0',
-    url='http://github.com/closeio/socketshark',
-    license='MIT',
-    description='WebSocket message router',
+    name="socketshark",
+    version="0.5.0",
+    url="http://github.com/closeio/socketshark",
+    license="MIT",
+    description="WebSocket message router",
     long_description=long_description,
-    test_suite='tests',
+    test_suite="tests",
     tests_require=tests_require,
-    platforms='any',
+    platforms="any",
     install_requires=install_requires,
     extras_require={
-        'prometheus': 'prometheus-async',
+        "prometheus": "prometheus-async",
     },
     classifiers=[
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
-        'Operating System :: OS Independent',
-        'Topic :: Software Development :: Libraries :: Python Modules',
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
-        'Programming Language :: Python :: 3.12',
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
     ],
     packages=[
-        'socketshark',
-        'socketshark.backend',
-        'socketshark.metrics',
+        "socketshark",
+        "socketshark.backend",
+        "socketshark.metrics",
     ],
     entry_points={
-        'console_scripts': [
-            'socketshark = socketshark.__main__:run',
+        "console_scripts": [
+            "socketshark = socketshark.__main__:run",
         ],
     },
 )
