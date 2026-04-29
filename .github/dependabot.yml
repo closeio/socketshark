@@ -2,14 +2,16 @@
 
 version: 2
 updates:
-  # Enable version updates for python
-  - package-ecosystem: "pip"
+  - package-ecosystem: "uv"
     directory: "/"
     open-pull-requests-limit: 20
     schedule:
-      interval: "daily"
+      interval: "weekly"
     pull-request-branch-name:
       # so it's compatible with docker tags
       separator: "-"
     assignees:
       - closeio/communications-backend
+    cooldown:
+      default-days: 2
+      semver-major-days: 14
