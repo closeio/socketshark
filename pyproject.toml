@@ -2,9 +2,6 @@
 target-version = "py310"
 line-length = 79
 
-[tool.ruff.format]
-quote-style = "preserve"
-
 [tool.ruff.lint]
 extend-select = [
     "UP",   # Enable pyupgrade rules for modern Python syntax.
