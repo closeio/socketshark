@@ -407,14 +407,14 @@ class Subscription:
             )
         except Exception:
             self.session.log.exception(
-                'unhandled exception when sending ' 'throttled message'
+                'unhandled exception when sending throttled message'
             )
 
     async def _send_throttled_message(self, throttle_key: str | None) -> None:
         # We've unsubscribed meanwhile.
         if self.name not in self.session.subscriptions:
             self.session.trace_log.debug(
-                'throttled message subscription ' 'invalid',
+                'throttled message subscription invalid',
                 throttle_key=throttle_key,
             )
             return
@@ -434,7 +434,7 @@ class Subscription:
         # Schedule another task.
         if pending_msg:
             self.session.trace_log.debug(
-                'throttled message submitted while ' 'sending',
+                'throttled message submitted while sending',
                 throttle_key=throttle_key,
             )
             self._schedule_throttled_message_task(

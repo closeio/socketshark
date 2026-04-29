@@ -2038,12 +2038,12 @@ class TestSession:
         http_retry_config = TEST_CONFIG.copy()
         http_retry_config['HTTP']['tries'] = 2
         http_retry_config['HTTP']['wait'] = 1
-        http_retry_config['HTTP'][
-            'rate_limit_reset_header_names'
-        ] = config_header_names
-        http_retry_config['HTTP'][
-            'rate_limit_reset_header_name'
-        ] = config_header_name
+        http_retry_config['HTTP']['rate_limit_reset_header_names'] = (
+            config_header_names
+        )
+        http_retry_config['HTTP']['rate_limit_reset_header_name'] = (
+            config_header_name
+        )
         shark = SocketShark(http_retry_config)
         await shark.prepare()
         client = MockClient(shark)
@@ -2728,7 +2728,6 @@ class TestWebsocket:
             async with aiosession.ws_connect(
                 self.ws_url, autoping=False
             ) as ws:
-
                 # Respond to ping in time
                 msg = await ws.receive()
                 assert msg.type == aiohttp.WSMsgType.PING
@@ -2780,7 +2779,6 @@ class TestWebsocket:
             async with aiosession.ws_connect(
                 self.ws_url, autoping=False
             ) as ws1:
-
                 await ws1.send_str(
                     json.dumps(
                         {
