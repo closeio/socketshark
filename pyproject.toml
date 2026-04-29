@@ -1,3 +1,61 @@
+[project]
+name = "socketshark"
+version = "0.5.0"
+description = "WebSocket message router"
+readme = "README.rst"
+license = "MIT"
+requires-python = ">=3.10"
+classifiers = [
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "aiohttp",
+    "aioredis>=1,<2",
+    "click",
+    "structlog",
+    "websockets>=12,<13",
+]
+
+[project.optional-dependencies]
+prometheus = ["prometheus-async"]
+
+[project.scripts]
+socketshark = "socketshark.__main__:run"
+
+[project.urls]
+Homepage = "http://github.com/closeio/socketshark"
+
+[dependency-groups]
+lint = ["mypy", "ruff>=0.15"]
+test = [
+    "aioresponses",
+    "pytest",
+    "pytest-asyncio",
+    "prometheus-async",
+    "prometheus-client",
+    # TODO: Remove this and switch to using `redis-py` instead of the
+    # no-longer-needed `aioredis`. `aioredis` has become part of `redis-py`
+    # and hasn't been necessary in 4-5 years... It's so ancient that it still
+    # requires `setuptools` and its subdependency of `distutils`, which is no
+    # longer present in Python 3.12+. We must thus bring it back explicitly.
+    "setuptools",
+]
+dev = [{include-group = "lint"}, {include-group = "test"}]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages]
+find = {include = ["socketshark*"]}
+
 [tool.ruff]
 target-version = "py310"
 line-length = 79
