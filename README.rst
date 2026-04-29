@@ -90,7 +90,7 @@ Quick start
 
 See ``example_config.py`` for an example configuration file.
 
-To start, install SocketShark (``python setup.py install``), create your own
+To start, install SocketShark (``pip install socketshark``), create your own
 configuration file, and run SocketShark as follows:
 
 .. code:: bash
