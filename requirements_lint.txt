@@ -1,2 +1,1 @@
-lintlizard==0.26.0
-click<8.1  # 8.1+ breaks black
+ruff==0.15.12
