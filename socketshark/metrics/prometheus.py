@@ -16,30 +16,30 @@ class PrometheusMetrics:
     """
 
     def __init__(
-        self, shark: 'SocketShark', config: MetricsProviderConfig
+        self, shark: "SocketShark", config: MetricsProviderConfig
     ) -> None:
-        self.ready_gauge = Gauge('socketshark_service_state', 'Service status')
+        self.ready_gauge = Gauge("socketshark_service_state", "Service status")
         self.active_connections_gauge = Gauge(
-            'socketshark_connection_count', 'Active connections'
+            "socketshark_connection_count", "Active connections"
         )
         self.connection_counter = Counter(
-            'socketshark_connection_total', 'Connection total'
+            "socketshark_connection_total", "Connection total"
         )
         self.event_counter = Gauge(
-            'socketshark_event_success_counter',
-            'Event success counter',
-            ['event', 'status'],
+            "socketshark_event_success_counter",
+            "Event success counter",
+            ["event", "status"],
         )
 
         self.config = config
         self.active_connections: int = 0
-        assert 'port' in self.config
+        assert "port" in self.config
 
     def initialize(self) -> None:
         # Run Prometheus but don't fail hard if it doesn't start.
         asyncio.ensure_future(
             start_http_server(
-                addr=self.config.get('host', ''), port=self.config['port']
+                addr=self.config.get("host", ""), port=self.config["port"]
             )
         )
 
@@ -57,6 +57,6 @@ class PrometheusMetrics:
 
     def log_event(self, event: str, success: bool | None) -> None:
         if success:
-            self.event_counter.labels(event=event, status='success').inc()
+            self.event_counter.labels(event=event, status="success").inc()
         else:
-            self.event_counter.labels(event=event, status='error').inc()
+            self.event_counter.labels(event=event, status="error").inc()

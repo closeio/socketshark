@@ -8,37 +8,37 @@ from socketshark.metrics import Metrics
 from socketshark.metrics.log import LogMetrics
 
 TEST_CONFIG = {
-    'BACKEND': 'websockets',
-    'WS_HOST': '127.0.0.1',
-    'WS_PORT': 9001,
-    'LOG': config_defaults.LOG,
-    'METRICS': {},
-    'REDIS': {
-        'host': '127.0.0.1',
-        'port': 6379,
-        'channel_prefix': '',
+    "BACKEND": "websockets",
+    "WS_HOST": "127.0.0.1",
+    "WS_PORT": 9001,
+    "LOG": config_defaults.LOG,
+    "METRICS": {},
+    "REDIS": {
+        "host": "127.0.0.1",
+        "port": 6379,
+        "channel_prefix": "",
     },
-    'HTTP': {
-        'timeout': 1,
-        'tries': 1,
-        'wait': 1,
+    "HTTP": {
+        "timeout": 1,
+        "tries": 1,
+        "wait": 1,
     },
-    'AUTHENTICATION': {},
-    'SERVICES': {},
+    "AUTHENTICATION": {},
+    "SERVICES": {},
 }
 
 
 class TestMetrics:
     def test_it_supports_a_log_provider(self):
         config = TEST_CONFIG.copy()
-        config['METRICS'] = {'log': {}}
+        config["METRICS"] = {"log": {}}
         shark = SocketShark(config)
-        assert shark.metrics.providers == {'log': mock.ANY}
-        assert isinstance(shark.metrics.providers['log'], LogMetrics)
+        assert shark.metrics.providers == {"log": mock.ANY}
+        assert isinstance(shark.metrics.providers["log"], LogMetrics)
 
     def test_it_raises_for_an_unknown_provider(self):
         config = TEST_CONFIG.copy()
-        config['METRICS'] = {'nonexistent': {}}
+        config["METRICS"] = {"nonexistent": {}}
         with pytest.raises(ModuleNotFoundError):
             SocketShark(config)
 
@@ -52,7 +52,7 @@ class TestLogMetrics:
     @pytest.fixture
     def log_metrics(self):
         config = TEST_CONFIG.copy()
-        config['METRICS'] = {'log': {}}
+        config["METRICS"] = {"log": {}}
         shark = SocketShark(config)
         return LogMetrics(shark, {})
 
@@ -61,11 +61,11 @@ class TestLogMetrics:
             log_metrics.increase_connection_count()
         assert structlog_logs == [
             {
-                'log_level': 'debug',
-                'event': 'metrics',
-                'active_connections': 1,
-                'total_connections': 1,
-                'pid': mock.ANY,
+                "log_level": "debug",
+                "event": "metrics",
+                "active_connections": 1,
+                "total_connections": 1,
+                "pid": mock.ANY,
             }
         ]
 
@@ -78,10 +78,10 @@ class TestLogMetrics:
 
         assert structlog_logs == [
             {
-                'log_level': 'debug',
-                'event': 'metrics',
-                'active_connections': 1,
-                'total_connections': 2,
-                'pid': mock.ANY,
+                "log_level": "debug",
+                "event": "metrics",
+                "active_connections": 1,
+                "total_connections": 2,
+                "pid": mock.ANY,
             }
         ]

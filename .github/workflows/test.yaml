@@ -13,8 +13,11 @@ jobs:
         run: |
           pip install -r requirements_lint.txt
       - name: Lint
-        run: |
-          lintlizard
+        run: ruff check .
+      - name: Check formatting
+        run: ruff format --check .
+      - name: Type check
+        run: mypy socketshark
 
   test:
     runs-on: ubuntu-24.04

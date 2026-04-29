@@ -21,9 +21,9 @@ from .types import Config, LogConfig
 
 def setup_logging(log_config: LogConfig) -> None:
     # Configure root logger if logging level is specified in config
-    if log_config['level']:
-        level = getattr(logging, log_config['level'])
-        formatter = logging.Formatter(log_config['format'])
+    if log_config["level"]:
+        level = getattr(logging, log_config["level"])
+        formatter = logging.Formatter(log_config["format"])
         sh: logging.StreamHandler[Any] = logging.StreamHandler()
         sh.setFormatter(formatter)
 
@@ -31,11 +31,11 @@ def setup_logging(log_config: LogConfig) -> None:
         logger.setLevel(level)
         logger.addHandler(sh)
 
-        trace_level = getattr(logging, log_config['trace_level'])
-        trace_logger = logging.getLogger(log_config['trace_logger_prefix'])
+        trace_level = getattr(logging, log_config["trace_level"])
+        trace_logger = logging.getLogger(log_config["trace_logger_prefix"])
         trace_logger.setLevel(trace_level)
 
-    if log_config['setup_structlog']:
+    if log_config["setup_structlog"]:
         setup_structlog(sys.stdout.isatty())
 
 
@@ -44,7 +44,7 @@ def setup_structlog(tty: bool = False) -> None:
         structlog.stdlib.filter_by_level,
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
-        structlog.processors.TimeStamper(fmt='iso', utc=True),
+        structlog.processors.TimeStamper(fmt="iso", utc=True),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
     ]
@@ -66,8 +66,8 @@ def load_backend(config: Config) -> Any:
     """
     Return the backend module from the given SocketShark configuration.
     """
-    backend_name = config.get('BACKEND', 'websockets')
-    backend_module = 'socketshark.backend.{}'.format(backend_name)
+    backend_name = config.get("BACKEND", "websockets")
+    backend_module = f"socketshark.backend.{backend_name}"
     return importlib.import_module(backend_module)
 
 
@@ -87,9 +87,9 @@ class SocketShark:
         self.redis_connections: list[RedisConnection] = []
 
     def _init_logging(self) -> None:
-        logger_name = self.config['LOG']['logger_name']
-        trace_logger_prefix = self.config['LOG']['trace_logger_prefix']
-        trace_logger_name = '{}.{}'.format(trace_logger_prefix, logger_name)
+        logger_name = self.config["LOG"]["logger_name"]
+        trace_logger_prefix = self.config["LOG"]["trace_logger_prefix"]
+        trace_logger_name = f"{trace_logger_prefix}.{logger_name}"
         pid = os.getpid()
         self.log: structlog.stdlib.BoundLogger = structlog.get_logger(
             logger_name
@@ -97,17 +97,17 @@ class SocketShark:
         self.trace_log: structlog.stdlib.BoundLogger = structlog.get_logger(
             trace_logger_name
         ).bind(pid=pid)
-        self.trace_log.debug('trace')
+        self.trace_log.debug("trace")
 
     def signal_ready(self) -> None:
         """
         Notify that the backend is ready.
         """
         self.log.info(
-            '🦈  ready',
-            host=self.config['WS_HOST'],
-            port=self.config['WS_PORT'],
-            secure=bool(self.config.get('WS_SSL')),
+            "🦈  ready",
+            host=self.config["WS_HOST"],
+            port=self.config["WS_PORT"],
+            secure=bool(self.config.get("WS_SSL")),
         )
         self.metrics.set_ready(True)
 
@@ -115,7 +115,7 @@ class SocketShark:
         """
         Notify that the backend shut down.
         """
-        self.log.info('done')
+        self.log.info("done")
         self.metrics.set_ready(False)
 
     async def _redis_connection_handler(self) -> None:
@@ -132,7 +132,7 @@ class SocketShark:
         ]
         await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
 
-        self.log.error('redis unexpectedly closed')
+        self.log.error("redis unexpectedly closed")
         self.metrics.set_ready(False)
 
         # Since we rely on PUBSUB channels, we disconnect all clients when
@@ -145,15 +145,15 @@ class SocketShark:
 
         Initialize Redis connection and the receiver class.
         """
-        redis_settings = [self.config['REDIS']]
-        if self.config.get('REDIS_ALT'):
-            redis_settings.append(self.config['REDIS_ALT'])
+        redis_settings = [self.config["REDIS"]]
+        if self.config.get("REDIS_ALT"):
+            redis_settings.append(self.config["REDIS_ALT"])
         try:
             self.redis_connections = await asyncio.gather(
                 *[RedisConnection.create(s) for s in redis_settings]
             )
         except (OSError, aioredis.RedisError):
-            self.log.exception('could not connect to redis')
+            self.log.exception("could not connect to redis")
             raise
 
         self._redis_connection_handler_task = asyncio.ensure_future(
@@ -174,7 +174,7 @@ class SocketShark:
         if self._shutdown:
             return
 
-        self.log.info('shutting down')
+        self.log.info("shutting down")
 
         self._shutdown = True
 
@@ -192,7 +192,7 @@ class SocketShark:
         # Wait for all sessions to close
         while self.sessions:
             self.log.info(
-                'waiting for sessions to close', n_sessions=len(self.sessions)
+                "waiting for sessions to close", n_sessions=len(self.sessions)
             )
             await asyncio.sleep(1)
 
@@ -238,7 +238,7 @@ class SocketShark:
         """
 
         def request_stop() -> None:
-            self.log.info('stop requested')
+            self.log.info("stop requested")
             asyncio.ensure_future(self.shutdown())
 
         loop = asyncio.get_event_loop()
@@ -254,11 +254,11 @@ class SocketShark:
         loop.remove_signal_handler(signal.SIGTERM)
 
     def get_ssl_context(self) -> ssl.SSLContext | None:
-        ssl_settings = self.config.get('WS_SSL')
+        ssl_settings = self.config.get("WS_SSL")
         if ssl_settings:
             ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
             ssl_context.load_cert_chain(
-                certfile=ssl_settings['cert'], keyfile=ssl_settings['key']
+                certfile=ssl_settings["cert"], keyfile=ssl_settings["key"]
             )
             return ssl_context
         return None
@@ -286,16 +286,16 @@ def load_config(config_name: str) -> Config:
 
 
 @click.command()
-@click.option('-c', '--config', required=True, help='dotted path to config')
+@click.option("-c", "--config", required=True, help="dotted path to config")
 @click.pass_context
 def run(context: click.Context, config: str) -> None:
     config_obj = load_config(config)
 
-    setup_logging(config_obj['LOG'])
+    setup_logging(config_obj["LOG"])
 
     shark = SocketShark(config_obj)
     try:
         shark.start()
     except Exception:
-        shark.log.exception('unhandled exception')
+        shark.log.exception("unhandled exception")
         raise

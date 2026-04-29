@@ -1,7 +1,7 @@
 import asyncio
 import random
 import time
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 from . import constants as c
 from .exceptions import EventError
@@ -29,30 +29,30 @@ def _get_options(data: dict[str, Any]) -> MessageOptions:
     """
     Return a dict of parsed message options.
     """
-    raw_options = data.get('options', {})
+    raw_options = data.get("options", {})
 
-    options: Dict[str, Any] = {
-        'order': None,
-        'order_key': None,
-        'throttle': None,
-        'throttle_key': None,
+    options: dict[str, Any] = {
+        "order": None,
+        "order_key": None,
+        "throttle": None,
+        "throttle_key": None,
     }
 
-    if 'order' in raw_options:
+    if "order" in raw_options:
         try:
-            options['order'] = float(raw_options['order'])
+            options["order"] = float(raw_options["order"])
         except (TypeError, ValueError):
             pass
         else:
-            options['order_key'] = raw_options.get('order_key')
+            options["order_key"] = raw_options.get("order_key")
 
-    if 'throttle' in raw_options:
+    if "throttle" in raw_options:
         try:
-            options['throttle'] = float(raw_options['throttle'])
+            options["throttle"] = float(raw_options["throttle"])
         except (TypeError, ValueError):
             pass
         else:
-            options['throttle_key'] = raw_options.get('throttle_key')
+            options["throttle_key"] = raw_options.get("throttle_key")
 
     return MessageOptions(options)
 
@@ -63,23 +63,23 @@ class Subscription:
     """
 
     def __init__(
-        self, config: Config, session: 'Session', data: ClientEventData
+        self, config: Config, session: "Session", data: ClientEventData
     ) -> None:
         self.config = config
         self.session = session
-        self.shark: 'SocketShark' = session.shark
+        self.shark: SocketShark = session.shark
         self.name: SubscriptionName = SubscriptionName(
-            data.get('subscription') or ''
+            data.get("subscription") or ""
         )
-        self.service: Optional[str] = None
-        self.topic: Optional[str] = None
-        if '.' in self.name:
-            self.service, self.topic = self.name.split('.', 1)
+        self.service: str | None = None
+        self.topic: str | None = None
+        if "." in self.name:
+            self.service, self.topic = self.name.split(".", 1)
         self.service_config: ServiceConfig | None
-        if self.service in config['SERVICES']:
-            sc: ServiceConfig = config['SERVICES'][self.service]
+        if self.service in config["SERVICES"]:
+            sc: ServiceConfig = config["SERVICES"][self.service]
             self.service_config = sc
-            self.extra_fields: list[str] = sc.get('extra_fields', [])
+            self.extra_fields: list[str] = sc.get("extra_fields", [])
             self.extra_data: ExtraData = ExtraData(
                 {
                     field: data[field]
@@ -87,7 +87,7 @@ class Subscription:
                     if field in data
                 }
             )
-            self.authorizer_fields: list[str] = sc.get('authorizer_fields', [])
+            self.authorizer_fields: list[str] = sc.get("authorizer_fields", [])
         else:
             self.service_config = None
             self.extra_data = ExtraData({})
@@ -127,7 +127,7 @@ class Subscription:
         """
         Return a data dict to be sent to the service handler.
         """
-        data: dict[str, Any] = {'subscription': self.name}
+        data: dict[str, Any] = {"subscription": self.name}
         data.update(self.extra_data)
         if self.authorizer_data:
             data.update(self.authorizer_data)
@@ -148,20 +148,20 @@ class Subscription:
             if extra_data is not None:
                 data.update(extra_data)
             result = await http_post(self.shark, url, data)
-            if raise_error and result.get('status') != 'ok':
-                error_data = result.get('data')
+            if raise_error and result.get("status") != "ok":
+                error_data = result.get("data")
                 raise EventError(
                     result.get(
-                        'error', error_message or c.ERR_UNHANDLED_EXCEPTION
+                        "error", error_message or c.ERR_UNHANDLED_EXCEPTION
                     ),
                     data=EventErrorData(error_data) if error_data else None,
                 )
             return result
-        return ServiceResponse({'status': 'ok'})
+        return ServiceResponse({"status": "ok"})
 
     async def authorize_subscription(self) -> None:
         data = await self.perform_service_request(
-            'authorizer', error_message=c.ERR_UNAUTHORIZED
+            "authorizer", error_message=c.ERR_UNAUTHORIZED
         )
 
         authorizer_data = {
@@ -180,16 +180,16 @@ class Subscription:
         self.authorizer_data = authorizer_data
 
         if fields_changed:
-            await self.perform_service_request('on_authorization_change')
+            await self.perform_service_request("on_authorization_change")
 
     async def periodic_authorizer(self) -> None:
         assert self.service_config is not None
-        period: float = self.service_config['authorization_renewal_period']
+        period: float = self.service_config["authorization_renewal_period"]
         jitter: float = self.service_config.get(
-            'authorization_renewal_jitter', 0
+            "authorization_renewal_jitter", 0
         )
         self.session.trace_log.debug(
-            'initializing periodic authorizer',
+            "initializing periodic authorizer",
             subscription=self.name,
             period=period,
             jitter=jitter,
@@ -199,28 +199,28 @@ class Subscription:
             await asyncio.sleep(sleep_duration)
             try:
                 self.session.log.debug(
-                    'verifying authorization', subscription=self.name
+                    "verifying authorization", subscription=self.name
                 )
                 await self.authorize_subscription()
                 self.session.log.debug(
-                    'authorization verified', subscription=self.name
+                    "authorization verified", subscription=self.name
                 )
             except EventError as e:
                 self.session.log.info(
-                    'authorization expired',
+                    "authorization expired",
                     subscription=self.name,
                     error=e.error,
                 )
                 await self.self_unsubscribe(e.error)
 
     async def send_heartbeat(self) -> None:
-        await self.perform_service_request('on_heartbeat')
+        await self.perform_service_request("on_heartbeat")
 
     async def periodic_heartbeat(self) -> None:
         assert self.service_config is not None
-        period: float = self.service_config['heartbeat_period']
+        period: float = self.service_config["heartbeat_period"]
         self.session.trace_log.debug(
-            'initializing periodic heartbeat task',
+            "initializing periodic heartbeat task",
             subscription=self.name,
             period=period,
         )
@@ -230,36 +230,36 @@ class Subscription:
         while True:
             try:
                 self.session.log.debug(
-                    'sending heartbeat', subscription=self.name
+                    "sending heartbeat", subscription=self.name
                 )
                 await self.send_heartbeat()
                 self.session.log.debug(
-                    'heartbeat sent', subscription=self.name
+                    "heartbeat sent", subscription=self.name
                 )
             except EventError as e:
                 # we just log heartbeat errors as heartbeats are not
                 # critically important to the subscription
                 self.session.log.warning(
-                    'error sending heartbeat to service',
+                    "error sending heartbeat to service",
                     subscription=self.name,
                     error=e.error,
                 )
             await asyncio.sleep(period)
 
     async def before_subscribe(self) -> ServiceResponse:
-        return await self.perform_service_request('before_subscribe')
+        return await self.perform_service_request("before_subscribe")
 
     async def on_subscribe(self) -> ServiceResponse:
         return await self.perform_service_request(
-            'on_subscribe', raise_error=False
+            "on_subscribe", raise_error=False
         )
 
     async def on_message(self, message_data: Any) -> ServiceResponse:
         return await self.perform_service_request(
-            'on_message',
+            "on_message",
             extra_data=ServiceRequestData(
                 {
-                    'data': message_data,
+                    "data": message_data,
                 }
             ),
         )
@@ -268,12 +268,12 @@ class Subscription:
         self, raise_error: bool = True
     ) -> ServiceResponse:
         return await self.perform_service_request(
-            'before_unsubscribe', raise_error=raise_error
+            "before_unsubscribe", raise_error=raise_error
         )
 
     async def on_unsubscribe(self) -> ServiceResponse:
         return await self.perform_service_request(
-            'on_unsubscribe', raise_error=False
+            "on_unsubscribe", raise_error=False
         )
 
     def _should_deliver_message_filter_fields(
@@ -285,7 +285,7 @@ class Subscription:
         assert self.service_config is not None
         # Check whether the message is filtered by comparing any defined
         # filter_fields to auth_info and extra_fields.
-        filter_fields: list[str] = self.service_config.get('filter_fields', [])
+        filter_fields: list[str] = self.service_config.get("filter_fields", [])
         for field in filter_fields:
             if field in data:
                 if field in self.extra_fields:
@@ -303,12 +303,12 @@ class Subscription:
         """
         Return whether to deliver the given message based on order.
         """
-        order: float | None = options['order']
+        order: float | None = options["order"]
         if order is None:
             return True
 
         # Check whether the message is out-of-order.
-        key: str | None = options['order_key']
+        key: str | None = options["order_key"]
         last_order = self.order_state.get(key)
 
         if last_order is not None and order <= last_order:
@@ -324,11 +324,11 @@ class Subscription:
         """
         Return whether to deliver the given message based on throttling.
         """
-        throttle: float | None = options['throttle']
+        throttle: float | None = options["throttle"]
         if throttle is None:
             return True
 
-        key: str | None = options['throttle_key']
+        key: str | None = options["throttle_key"]
         last_throttle = self.throttle_state.get(key)
         now = time.time()
         if last_throttle:
@@ -355,7 +355,7 @@ class Subscription:
     ) -> None:
         options = _get_options(data)
         # This should succeed since we parsed it previously
-        when = ts_last_msg_sent + options['throttle']
+        when = ts_last_msg_sent + options["throttle"]
         task = asyncio.ensure_future(
             self._schedule_throttled_message(when, key)
         )
@@ -371,19 +371,19 @@ class Subscription:
 
         if not self._should_deliver_message_filter_fields(data):
             self.session.trace_log.debug(
-                'message filtered', data=data, reason='fields'
+                "message filtered", data=data, reason="fields"
             )
             return False
 
         if not self._should_deliver_message_order(data, options):
             self.session.trace_log.debug(
-                'message filtered', data=data, reason='order'
+                "message filtered", data=data, reason="order"
             )
             return False
 
         if not self._should_deliver_message_throttle(data, options):
             self.session.trace_log.debug(
-                'message filtered', data=data, reason='throttle'
+                "message filtered", data=data, reason="throttle"
             )
             return False
 
@@ -394,7 +394,7 @@ class Subscription:
     ) -> None:
         delay = when - time.time()
         self.session.trace_log.debug(
-            'throttled message scheduled',
+            "throttled message scheduled",
             throttle_key=throttle_key,
             delay=delay,
         )
@@ -403,18 +403,18 @@ class Subscription:
             await self._send_throttled_message(throttle_key)
         except asyncio.CancelledError:  # Cancelled by unsubscribe
             self.session.trace_log.debug(
-                'throttled message canceled', throttle_key=throttle_key
+                "throttled message canceled", throttle_key=throttle_key
             )
         except Exception:
             self.session.log.exception(
-                'unhandled exception when sending ' 'throttled message'
+                "unhandled exception when sending throttled message"
             )
 
     async def _send_throttled_message(self, throttle_key: str | None) -> None:
         # We've unsubscribed meanwhile.
         if self.name not in self.session.subscriptions:
             self.session.trace_log.debug(
-                'throttled message subscription ' 'invalid',
+                "throttled message subscription invalid",
                 throttle_key=throttle_key,
             )
             return
@@ -424,17 +424,17 @@ class Subscription:
         now = time.time()
         self.throttle_state[throttle_key] = (now, None, task)
         self.session.trace_log.debug(
-            'sending throttled message', throttle_key=throttle_key
+            "sending throttled message", throttle_key=throttle_key
         )
         assert pending_msg is not None
-        await self.session.send_message(self, pending_msg['data'])
+        await self.session.send_message(self, pending_msg["data"])
 
         ts_last_msg_sent, pending_msg, task = self.throttle_state[throttle_key]
         # A throttled message was submitted while we were sending.
         # Schedule another task.
         if pending_msg:
             self.session.trace_log.debug(
-                'throttled message submitted while ' 'sending',
+                "throttled message submitted while sending",
                 throttle_key=throttle_key,
             )
             self._schedule_throttled_message_task(
@@ -443,13 +443,13 @@ class Subscription:
         else:
             self.throttle_state[throttle_key] = (now, None, None)
 
-    async def subscribe(self, event: 'Event') -> None:
+    async def subscribe(self, event: "Event") -> None:
         """
         Subscribe to the subscription.
         """
         assert self.service_config is not None
         require_authentication = self.service_config.get(
-            'require_authentication', True
+            "require_authentication", True
         )
 
         if require_authentication and not self.session.auth_info:
@@ -469,20 +469,20 @@ class Subscription:
         self.session.subscriptions[self.name] = self
 
         if self.should_deliver_message(result):
-            await event.send_ok(result.get('data'))
+            await event.send_ok(result.get("data"))
 
         await self.shark.service_receiver.confirm_subscription(
             self.session, self.name
         )
 
-        if 'authorization_renewal_period' in self.service_config:
+        if "authorization_renewal_period" in self.service_config:
             self._periodic_authorizer_task = asyncio.ensure_future(
                 self.periodic_authorizer()
             )
 
         if (
-            'heartbeat_period' in self.service_config
-            and 'on_heartbeat' in self.service_config
+            "heartbeat_period" in self.service_config
+            and "on_heartbeat" in self.service_config
         ):
             self._periodic_heartbeat_task = asyncio.ensure_future(
                 self.periodic_heartbeat()
@@ -490,19 +490,19 @@ class Subscription:
 
         await self.on_subscribe()
 
-    async def message(self, event: 'Event') -> None:
+    async def message(self, event: "Event") -> None:
         """
         Send a message to the subscription.
         """
         if self.name not in self.session.subscriptions:
             raise EventError(c.ERR_SUBSCRIPTION_NOT_FOUND)
 
-        message_data = event.data.get('data')
+        message_data = event.data.get("data")
 
         result = await self.on_message(message_data)
-        if 'data' in result:
+        if "data" in result:
             if event:
-                await event.send_ok(result['data'])
+                await event.send_ok(result["data"])
 
     async def cleanup_subscription(self) -> None:
         await self.shark.service_receiver.delete_subscription(
@@ -520,7 +520,7 @@ class Subscription:
         if self._periodic_heartbeat_task:
             self._periodic_heartbeat_task.cancel()
 
-    async def unsubscribe(self, event: 'Event') -> None:
+    async def unsubscribe(self, event: "Event") -> None:
         """
         Unsubscribe from the subscription.
         """
@@ -532,7 +532,7 @@ class Subscription:
         del self.session.subscriptions[self.name]
         await self.cleanup_subscription()
 
-        await event.send_ok(result.get('data'))
+        await event.send_ok(result.get("data"))
 
         await self.on_unsubscribe()
 
@@ -545,7 +545,7 @@ class Subscription:
 
         result = await self.before_unsubscribe(raise_error=False)
         await self.on_unsubscribe()
-        await self.session.send_unsubscribe(self, result.get('data'), error)
+        await self.session.send_unsubscribe(self, result.get("data"), error)
 
     async def force_unsubscribe(self) -> None:
         """

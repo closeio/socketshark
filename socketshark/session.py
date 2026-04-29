@@ -27,8 +27,8 @@ class Session:
 
     def __init__(
         self,
-        shark: 'SocketShark',
-        client: 'Client',
+        shark: "SocketShark",
+        client: "Client",
         info: dict[str, Any] | None = None,
     ) -> None:
         """
@@ -51,7 +51,7 @@ class Session:
         self.trace_log: structlog.stdlib.BoundLogger = (
             self.shark.trace_log.bind(session=id(self))
         )
-        self.log.debug('new session', **info)
+        self.log.debug("new session", **info)
         self.subscriptions: dict[SubscriptionName, Subscription] = {}
         self.active: bool = True
         shark.sessions.add(self)
@@ -65,24 +65,24 @@ class Session:
         """
         if not self.active:
             # Event was received while the WebSocket is about to close.
-            self.log.warn('inactive client event ignored', data=data)
+            self.log.warn("inactive client event ignored", data=data)
             return
 
-        self.log.debug('client event', data=data)
+        self.log.debug("client event", data=data)
         event = Event.from_data(self, data)
         try:
             result = await event.full_process()
 
             # Don't log invalid/unknown event names
             if isinstance(event, InvalidEvent):
-                event_name = 'invalid'
+                event_name = "invalid"
             elif isinstance(event, UnknownEvent):
-                event_name = 'unknown'
+                event_name = "unknown"
             else:
                 event_name = event.event
             self.shark.metrics.log_event(event_name, result)
         except Exception:
-            self.shark.log.exception('unhandled event processing exception')
+            self.shark.log.exception("unhandled event processing exception")
             await event.send_error(c.ERR_UNHANDLED_EXCEPTION)
             await self.close()
 
@@ -103,18 +103,18 @@ class Session:
         if not self.active:
             return
 
-        if 'subscription' not in data or 'data' not in data:
-            self.log.warn('invalid service event', data=data)
+        if "subscription" not in data or "data" not in data:
+            self.log.warn("invalid service event", data=data)
             return
 
-        subscription_name = data['subscription']
+        subscription_name = data["subscription"]
         subscription = self.subscriptions.get(subscription_name)
         if not subscription:
             return
         if not subscription.should_deliver_message(data):
             return
 
-        raw_published_at: str | None = data.get('published_at')
+        raw_published_at: str | None = data.get("published_at")
         published_at: datetime.datetime | None = None
         if raw_published_at is not None:
             try:
@@ -123,13 +123,13 @@ class Session:
                 )
             except ValueError:
                 self.log.warn(
-                    'invalid published_at format',
+                    "invalid published_at format",
                     published_at=raw_published_at,
                 )
 
         await self.send_message(
             subscription,
-            data['data'],
+            data["data"],
             published_at=published_at,
             received_at=received_at,
             queue_size=queue_size,
@@ -145,18 +145,18 @@ class Session:
         queue_size: int | None = None,
     ) -> None:
         msg: dict[str, Any] = {
-            'event': 'message',
-            'subscription': subscription.name,
-            'data': data,
+            "event": "message",
+            "subscription": subscription.name,
+            "data": data,
         }
         if published_at is not None:
-            msg['published_at'] = published_at.isoformat()
+            msg["published_at"] = published_at.isoformat()
         if received_at is not None:
-            msg['received_at'] = received_at.isoformat()
+            msg["received_at"] = received_at.isoformat()
         if queue_size is not None:
-            msg['queue_size'] = queue_size
+            msg["queue_size"] = queue_size
         msg.update(subscription.extra_data)
-        msg['sent_at'] = datetime.datetime.now(
+        msg["sent_at"] = datetime.datetime.now(
             datetime.timezone.utc
         ).isoformat()
 
@@ -169,13 +169,13 @@ class Session:
         error: str | None = None,
     ) -> None:
         msg: dict[str, Any] = {
-            'event': 'unsubscribe',
-            'subscription': subscription.name,
+            "event": "unsubscribe",
+            "subscription": subscription.name,
         }
         if data is not None:
-            msg['data'] = data
+            msg["data"] = data
         if error is not None:
-            msg['error'] = error
+            msg["error"] = error
         msg.update(subscription.extra_data)
         await self.send(ClientMessage(msg))
 
@@ -183,23 +183,23 @@ class Session:
         """
         Send a JSON message to the client.
         """
-        self.log.debug('client send', data=data)
+        self.log.debug("client send", data=data)
         await self.client.send(data)
 
     async def close(self) -> None:
         if self.active:
-            self.log.info('closing connection')
+            self.log.info("closing connection")
             self.active = False
             await self.client.close()
         else:
-            self.log.info('connection already closing')
+            self.log.info("connection already closing")
 
     async def on_close(self) -> None:
         """
         Called by the WebSocket backend to indicate the connection was closed.
         """
         self.active = False
-        self.log.info('connection closed')
+        self.log.info("connection closed")
         await self.unsubscribe_all()
         self.shark.sessions.remove(self)
         self.shark.metrics.decrease_connection_count()
