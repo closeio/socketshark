@@ -5,19 +5,17 @@ on: [push, pull_request, workflow_dispatch]
 jobs:
   lint:
     runs-on: ubuntu-24.04
-    container:
-      image: python:3.12
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
       - name: Install dependencies
-        run: |
-          pip install -r requirements_lint.txt
+        run: uv sync --only-group lint
       - name: Lint
-        run: ruff check .
+        run: uv run ruff check .
       - name: Check formatting
-        run: ruff format --check .
+        run: uv run ruff format --check .
       - name: Type check
-        run: mypy socketshark
+        run: uv run mypy socketshark
 
   test:
     runs-on: ubuntu-24.04
@@ -36,16 +34,14 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
-    container:
-      image: python:${{ matrix.python-version }}
     env:
       STRICT_WARNINGS: "1"
-      LOCAL_REDIS_HOST: redis
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: |
-          pip install --no-deps -r requirements_tests.txt
+        run: uv sync --group test
       - name: Test
-        run: |
-          PYTHONPATH=. pytest
+        run: uv run pytest
