@@ -1,11 +1,22 @@
-[tool.black]
-skip-string-normalization = true
-target-version = ['py310']
+[tool.ruff]
+target-version = "py310"
 line-length = 79
-exclude = '''
-/(
-    \.git
-  | \.venv
-  | ui
-)/
-'''
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = "preserve"
+
+[tool.ruff.lint]
+extend-select = [
+    "UP",   # Enable pyupgrade rules for modern Python syntax.
+    "F",    # Enable pyflakes rules (unused imports, undefined names, etc.).
+    "I",    # Enable import sorting rules (I-series, from isort).
+    "T",    # Enable flake8-print rules.
+    "DTZ",  # Enable flake8-datetimez rules (e.g. requiring explicit tzinfo).
+    "B904", # Enforce "raise from" within the "except" clause.
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+forced-separate = ["tests"]
+known-first-party = ["socketshark"]
