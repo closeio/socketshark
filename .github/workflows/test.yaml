@@ -14,7 +14,8 @@ jobs:
           pip install -r requirements_lint.txt
       - name: Lint
         run: |
-          lintlizard
+          ruff check .
+          ruff format --check .
 
   test:
     runs-on: ubuntu-24.04
