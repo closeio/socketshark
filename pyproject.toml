@@ -16,3 +16,23 @@ extend-select = [
 combine-as-imports = true
 forced-separate = ["tests"]
 known-first-party = ["socketshark"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+no_implicit_optional = true
+strict_equality = true
+follow_imports = "skip"
+warn_unreachable = true
+show_error_context = true
+pretty = true
+files = ["socketshark"]
+mypy_path = "$MYPY_CONFIG_FILE_DIR/stubs"
+namespace_packages = true
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
