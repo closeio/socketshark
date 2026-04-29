@@ -1,5 +1,3 @@
-from typing import Optional
-
 from .types import (
     AuthConfig,
     HttpOptions,
@@ -94,7 +92,7 @@ REDIS: RedisSettings = RedisSettings(
 # and set as REDIS, keeping the old Redis instance as REDIS_ALT.
 # Then update any publishers to publish to the new instance.
 # Once all publishers have been updated, set REDIS_ALT to None.
-REDIS_ALT: Optional[RedisSettings] = None
+REDIS_ALT: RedisSettings | None = None
 
 # Authentication
 AUTHENTICATION: AuthConfig = AuthConfig({})

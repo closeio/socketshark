@@ -67,7 +67,7 @@ def load_backend(config: Config) -> Any:
     Return the backend module from the given SocketShark configuration.
     """
     backend_name = config.get('BACKEND', 'websockets')
-    backend_module = 'socketshark.backend.{}'.format(backend_name)
+    backend_module = f'socketshark.backend.{backend_name}'
     return importlib.import_module(backend_module)
 
 
@@ -89,7 +89,7 @@ class SocketShark:
     def _init_logging(self) -> None:
         logger_name = self.config['LOG']['logger_name']
         trace_logger_prefix = self.config['LOG']['trace_logger_prefix']
-        trace_logger_name = '{}.{}'.format(trace_logger_prefix, logger_name)
+        trace_logger_name = f'{trace_logger_prefix}.{logger_name}'
         pid = os.getpid()
         self.log: structlog.stdlib.BoundLogger = structlog.get_logger(
             logger_name

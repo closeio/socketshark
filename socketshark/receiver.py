@@ -3,7 +3,7 @@ import datetime
 import json
 import time
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from .redis_connection import RedisConnection
 from .session import Session
@@ -51,8 +51,8 @@ class ServiceReceiver:
             return
 
         latency: float = 0
-        ping: Optional[Any] = None
-        wait: Optional[Any] = None
+        ping: Any | None = None
+        wait: Any | None = None
 
         try:
             while True:

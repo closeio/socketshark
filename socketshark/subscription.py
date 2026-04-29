@@ -1,7 +1,7 @@
 import asyncio
 import random
 import time
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 from . import constants as c
 from .exceptions import EventError
@@ -31,7 +31,7 @@ def _get_options(data: dict[str, Any]) -> MessageOptions:
     """
     raw_options = data.get('options', {})
 
-    options: Dict[str, Any] = {
+    options: dict[str, Any] = {
         'order': None,
         'order_key': None,
         'throttle': None,
@@ -67,12 +67,12 @@ class Subscription:
     ) -> None:
         self.config = config
         self.session = session
-        self.shark: 'SocketShark' = session.shark
+        self.shark: SocketShark = session.shark
         self.name: SubscriptionName = SubscriptionName(
             data.get('subscription') or ''
         )
-        self.service: Optional[str] = None
-        self.topic: Optional[str] = None
+        self.service: str | None = None
+        self.topic: str | None = None
         if '.' in self.name:
             self.service, self.topic = self.name.split('.', 1)
         self.service_config: ServiceConfig | None

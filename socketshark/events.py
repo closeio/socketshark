@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from . import constants as c
 from .exceptions import EventError
@@ -48,7 +48,7 @@ class Event:
         self.event: str = data['event']
         self.extra_data: dict[str, Any] = {}
         self.session = session
-        self.shark: 'SocketShark' = session.shark
+        self.shark: SocketShark = session.shark
 
     async def send_error(
         self,
@@ -236,7 +236,7 @@ class PingEvent(Event):
         # If the "ping" event included some "data", send the same data back
         # so that pings and their pongs can be tied together. However, only
         # accept string data and only up to 128 characters.
-        data: Optional[str] = None
+        data: str | None = None
         if isinstance(raw_data, str):
             data = raw_data[:128]
 

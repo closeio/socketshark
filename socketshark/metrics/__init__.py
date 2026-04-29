@@ -25,9 +25,9 @@ class Metrics:
     def _get_provider(
         self, provider: str, settings: MetricsProviderConfig
     ) -> Any:
-        metrics_module = 'socketshark.metrics.{}'.format(provider)
+        metrics_module = f'socketshark.metrics.{provider}'
         module = importlib.import_module(metrics_module)
-        cls_name = '{}Metrics'.format(provider.capitalize())
+        cls_name = f'{provider.capitalize()}Metrics'
         cls = getattr(module, cls_name)
         return cls(self.shark, settings)
 
