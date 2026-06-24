@@ -110,14 +110,6 @@ setup_logging(TEST_CONFIG["LOG"])
 
 @pytest.fixture
 def current_event_loop():
-    """
-    Provide a current event loop on the main thread for synchronous tests that
-    drive the loop themselves (e.g. they call ``shark.start()`` directly).
-
-    pytest-asyncio no longer sets a current event loop, and
-    ``asyncio.get_event_loop()`` no longer creates one implicitly, so these
-    tests need an explicit loop set up and torn down around them.
-    """
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     yield loop
