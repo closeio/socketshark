@@ -35,7 +35,6 @@ Homepage = "http://github.com/closeio/socketshark"
 [dependency-groups]
 lint = ["mypy", "ruff>=0.15"]
 test = [
-    "aioresponses",
     "pytest",
     "pytest-asyncio",
     "prometheus-async",
@@ -46,6 +45,7 @@ test = [
     # requires `setuptools` and its subdependency of `distutils`, which is no
     # longer present in Python 3.12+. We must thus bring it back explicitly.
     "setuptools",
+    "aiointercept>=0.1.7",
 ]
 dev = [{include-group = "lint"}, {include-group = "test"}]
 

@@ -8,7 +8,7 @@ from unittest import mock
 import aiohttp
 import aioredis
 import pytest
-from aioresponses import aioresponses
+from aiointercept import CallbackResult, aiointercept
 from structlog.testing import capture_logs
 from yarl import URL
 
@@ -117,20 +117,6 @@ def current_event_loop():
     asyncio.set_event_loop(None)
 
 
-class aioresponses_delayed(aioresponses):  # noqa
-    """
-    Just like aioresponses, but slightly delays POST requests.
-    """
-
-    async def _request_mock(self, orig_self, method, url, *args, **kwargs):
-        result = await super()._request_mock(
-            orig_self, method, url, *args, **kwargs
-        )
-        if method == "POST":
-            await asyncio.sleep(0.2)
-        return result
-
-
 class MockClient:  # noqa SIM119
     def __init__(self, shark):
         self.log = []
@@ -158,7 +144,7 @@ class TestSession:
     """
 
     async def _auth_session(self, session):
-        with aioresponses() as mock_responses:
+        async with aiointercept(mock_external_urls=True) as mock_responses:
             # Mock auth endpoint
             auth_url = "http://auth-service/auth/ticket/"
 
@@ -385,7 +371,7 @@ class TestSession:
             "error": "Must specify ticket.",
         }
 
-        with aioresponses() as mock_responses:
+        async with aiointercept(mock_external_urls=True) as mock_responses:
             # Auth endpoint unreachable
             await session.on_client_event(
                 {
@@ -400,7 +386,7 @@ class TestSession:
                 "error": "Service unavailable.",
             }
 
-        with aioresponses() as mock_responses:
+        async with aiointercept(mock_external_urls=True) as mock_responses:
             # Mock auth endpoint
             auth_url = "http://auth-service/auth/ticket/"
 
@@ -856,7 +842,7 @@ class TestSession:
 
         await self._auth_session(session)
 
-        with aioresponses() as mock_responses:
+        async with aiointercept(mock_external_urls=True) as mock_responses:
             # Authorizer is unavailable.
             await session.on_client_event(
                 {
@@ -871,7 +857,7 @@ class TestSession:
                 "error": "Service unavailable.",
             }
 
-        with aioresponses() as mock_responses:
+        async with aiointercept(mock_external_urls=True) as mock_responses:
             # Mock authorizer
             authorizer_url = "http://auth-service/auth/authorizer/"
 
@@ -973,7 +959,7 @@ class TestSession:
 
         await self._auth_session(session)
 
-        with aioresponses() as mock_responses:
+        async with aiointercept(mock_external_urls=True) as mock_responses:
             # Mock authorizer
             mock_responses.post(
                 conf["authorizer"],
@@ -1031,7 +1017,7 @@ class TestSession:
 
         await self._auth_session(session)
 
-        with aioresponses() as mock_responses:
+        async with aiointercept(mock_external_urls=True) as mock_responses:
             # Mock authorizer
             authorizer_url = "http://auth-service/auth/authorizer/"
 
@@ -1129,7 +1115,7 @@ class TestSession:
 
         conf = TEST_CONFIG["SERVICES"]["periodic_authorizer_with_fields"]
 
-        with aioresponses() as mock_responses:
+        async with aiointercept(mock_external_urls=True) as mock_responses:
             # Mock authorizer
             mock_responses.post(
                 conf["authorizer"],
@@ -1204,7 +1190,7 @@ class TestSession:
         client = MockClient(shark)
         session = client.session
 
-        with aioresponses() as mock_responses:
+        async with aiointercept(mock_external_urls=True) as mock_responses:
             # Mock responses
             heartbeat_url = "http://my-service/heartbeat/"
 
@@ -1242,7 +1228,7 @@ class TestSession:
         conf = TEST_CONFIG["SERVICES"]["complex"]
 
         # Test unsuccessful subscriptions
-        with aioresponses() as mock_responses:
+        async with aiointercept(mock_external_urls=True) as mock_responses:
             mock_responses.post(conf["authorizer"], payload={"status": "ok"})
             mock_responses.post(
                 conf["before_subscribe"], payload={"status": "error"}
@@ -1296,7 +1282,7 @@ class TestSession:
                 }
 
         # Test successful subscription with extra field and messages
-        with aioresponses() as mock_responses:
+        async with aiointercept(mock_external_urls=True) as mock_responses:
             mock_responses.post(conf["authorizer"], payload={"status": "ok"})
             mock_responses.post(
                 conf["before_subscribe"], payload={"status": "ok"}
@@ -1480,7 +1466,7 @@ class TestSession:
         }
 
         # Test unsubscribe callbacks
-        with aioresponses() as mock_responses:
+        async with aiointercept(mock_external_urls=True) as mock_responses:
             mock_responses.post(
                 conf["before_unsubscribe"], payload={"status": "error"}
             )
@@ -1553,7 +1539,7 @@ class TestSession:
                 }
 
         # Test extra data in subscribe/unsubscribe callbacks
-        with aioresponses() as mock_responses:
+        async with aiointercept(mock_external_urls=True) as mock_responses:
             mock_responses.post(conf["authorizer"], payload={"status": "ok"})
             mock_responses.post(
                 conf["before_subscribe"],
@@ -1630,7 +1616,7 @@ class TestSession:
 
         conf = TEST_CONFIG["SERVICES"]["complex"]
 
-        with aioresponses() as mock_responses:
+        async with aiointercept(mock_external_urls=True) as mock_responses:
             mock_responses.post(conf["authorizer"], payload={"status": "ok"})
             mock_responses.post(
                 conf["before_subscribe"], payload={"status": "ok"}
@@ -1672,7 +1658,7 @@ class TestSession:
 
         conf = TEST_CONFIG["SERVICES"]["simple_before_subscribe"]
 
-        with aioresponses() as mock_responses:
+        async with aiointercept(mock_external_urls=True) as mock_responses:
             mock_responses.post(
                 conf["before_subscribe"],
                 payload={
@@ -2063,7 +2049,7 @@ class TestSession:
 
         conf = TEST_CONFIG["SERVICES"]["simple_before_subscribe"]
 
-        with aioresponses() as mock_responses:
+        async with aiointercept(mock_external_urls=True) as mock_responses:
             mock_responses.post(
                 conf["before_subscribe"],
                 status=429,
@@ -2556,7 +2542,7 @@ class TestWebsocket:
             await asyncio.sleep(0.1)
 
             aiosession = aiohttp.ClientSession()
-            mock_responses = aioresponses()
+            mock_responses = aiointercept(mock_external_urls=True)
             conf = TEST_CONFIG["SERVICES"]["ws_test"]
 
             async with aiosession.ws_connect(self.ws_url) as ws:
@@ -2577,16 +2563,14 @@ class TestWebsocket:
                     "status": "ok",
                 }
 
-                # Start mocking here (if we started mocking earlier we wouldn't
-                # be able to use aiohttp to connect to the WebSocket).
-                mock_responses.start()
+                await mock_responses.start()
                 mock_responses.post(conf["on_unsubscribe"], payload={})
 
             await aiosession.close()
 
             # Wait until backend learns about the disconnected WebSocket.
             await asyncio.sleep(0.1)
-            mock_responses.stop()
+            await mock_responses.stop()
             requests = mock_responses.requests[
                 ("POST", URL(conf["on_unsubscribe"]))
             ]
@@ -2609,7 +2593,7 @@ class TestWebsocket:
         """
         Make sure we call unsubscribe callbacks when shutting down.
         """
-        mock_responses = aioresponses()
+        mock_responses = aiointercept(mock_external_urls=True)
         conf = TEST_CONFIG["SERVICES"]["ws_test"]
 
         async def task():
@@ -2636,7 +2620,7 @@ class TestWebsocket:
                     "status": "ok",
                 }
 
-                mock_responses.start()
+                await mock_responses.start()
                 mock_responses.post(conf["on_unsubscribe"], payload={})
 
                 asyncio.ensure_future(shark.shutdown())
@@ -2650,7 +2634,6 @@ class TestWebsocket:
         shark = SocketShark(TEST_CONFIG)
         asyncio.ensure_future(task())
         shark.start()
-        mock_responses.stop()
 
         requests = mock_responses.requests[
             ("POST", URL(conf["on_unsubscribe"]))
@@ -2662,9 +2645,12 @@ class TestWebsocket:
         """
         Make sure we don't allow new WebSocket connections when shutting down.
         """
-        # Pretend we have a subscription that takes a long time to close (so
-        # we can sneak in a connection attempt).
-        mock_responses = aioresponses_delayed()
+        mock_responses = aiointercept(mock_external_urls=True)
+
+        async def _delayed_ok(url, **kwargs):
+            await asyncio.sleep(0.2)
+            return CallbackResult(payload={})
+
         conf = TEST_CONFIG["SERVICES"]["ws_test"]
 
         async def task():
@@ -2691,8 +2677,13 @@ class TestWebsocket:
                     "status": "ok",
                 }
 
-                mock_responses.start()
-                mock_responses.post(conf["on_unsubscribe"], payload={})
+                await mock_responses.start()
+                mock_responses.post(
+                    conf["on_unsubscribe"],
+                    # Pretend we have a subscription that takes a long time to
+                    # close (so we can sneak in a connection attempt).
+                    callback=_delayed_ok,
+                )
 
                 asyncio.ensure_future(shark.shutdown())
 
@@ -2700,16 +2691,18 @@ class TestWebsocket:
                 assert msg.type == aiohttp.WSMsgType.CLOSE
                 await ws.close()
 
-                # Ensure we call the on_unsubscribe callback before the
-                # stopping the patcher.
+                # Ensure we call the `on_unsubscribe` callback before stopping
+                # the patcher.
                 await asyncio.sleep(0.1)
 
-                mock_responses.stop()
+                await mock_responses.stop()
 
             # Attempt a new connection.
             with pytest.raises(aiohttp.ClientConnectionError):
                 async with aiosession.ws_connect(self.ws_url) as ws:
-                    raise AssertionError  # Whoops!
+                    # Whoops! This should never happen. The connection should
+                    # fail before we get here.
+                    raise AssertionError
 
             await aiosession.close()
 
