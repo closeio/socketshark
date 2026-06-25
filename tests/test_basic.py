@@ -108,6 +108,15 @@ TEST_CONFIG_WITH_ALT_REDIS["REDIS_ALT"]["channel_prefix"] = "alt:"
 setup_logging(TEST_CONFIG["LOG"])
 
 
+@pytest.fixture
+def current_event_loop():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield loop
+    loop.close()
+    asyncio.set_event_loop(None)
+
+
 class MockClient:  # noqa SIM119
     def __init__(self, shark):
         self.log = []
@@ -120,6 +129,7 @@ class MockClient:  # noqa SIM119
         await self.session.on_close()
 
 
+@pytest.mark.usefixtures("current_event_loop")
 class TestShark:
     def test_shark_init(self):
         shark = SocketShark(TEST_CONFIG)
@@ -2508,6 +2518,7 @@ class TestThrottle:
         await shark.shutdown()
 
 
+@pytest.mark.usefixtures("current_event_loop")
 class TestWebsocket:
     """
     Test an actual WebSocket connection.
