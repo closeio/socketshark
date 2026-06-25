@@ -35,7 +35,6 @@ Homepage = "http://github.com/closeio/socketshark"
 [dependency-groups]
 lint = ["mypy", "ruff>=0.15"]
 test = [
-    "aioresponses",
     "pytest",
     "pytest-asyncio",
     "prometheus-async",
