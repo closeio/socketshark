@@ -2682,7 +2682,7 @@ class TestWebsocket:
                     conf["on_unsubscribe"],
                     # Pretend we have a subscription that takes a long time to
                     # close (so we can sneak in a connection attempt).
-                    callback=_delayed_ok
+                    callback=_delayed_ok,
                 )
 
                 asyncio.ensure_future(shark.shutdown())
