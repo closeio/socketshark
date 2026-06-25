@@ -131,12 +131,15 @@ class Backend:
             self.server.close()
             await self.server.wait_closed()
 
-    def start(self) -> None:
+    async def serve(self) -> None:
         """
-        Called by SocketShark to initialize the server, prepare & run.
+        Initialize the server, prepare SocketShark, and run until shutdown.
+
+        This is the main coroutine of the backend. It can be awaited directly
+        (e.g. from tests) or run via the synchronous start() entrypoint.
         """
 
-        async def serve(
+        async def handler(
             websocket: websockets.WebSocketServerProtocol, path: str
         ) -> None:
             # If there are any pending connections that were established after
@@ -151,15 +154,18 @@ class Backend:
             await client.consumer_handler()
 
         config = self.shark.config
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.shark.prepare())
+        await self.shark.prepare()
         ssl_context = self.shark.get_ssl_context()
-        start_server = websockets.serve(
-            serve, config["WS_HOST"], config["WS_PORT"], ssl=ssl_context
+        self.server = await websockets.serve(
+            handler, config["WS_HOST"], config["WS_PORT"], ssl=ssl_context
         )
-        self.server = loop.run_until_complete(start_server)
         self.shark.signal_ready()
-        loop.run_until_complete(self.shark.run())
-        loop.run_forever()
-        loop.run_until_complete(self.shutdown())
+        await self.shark.run()
+        await self.shutdown()
         self.shark.signal_shutdown()
+
+    def start(self) -> None:
+        """
+        Called by SocketShark to initialize the server, prepare & run.
+        """
+        asyncio.run(self.serve())

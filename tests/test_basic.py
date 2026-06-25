@@ -108,15 +108,6 @@ TEST_CONFIG_WITH_ALT_REDIS["REDIS_ALT"]["channel_prefix"] = "alt:"
 setup_logging(TEST_CONFIG["LOG"])
 
 
-@pytest.fixture
-def current_event_loop():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    yield loop
-    loop.close()
-    asyncio.set_event_loop(None)
-
-
 class aioresponses_delayed(aioresponses):  # noqa
     """
     Just like aioresponses, but slightly delays POST requests.
@@ -143,13 +134,12 @@ class MockClient:  # noqa SIM119
         await self.session.on_close()
 
 
-@pytest.mark.usefixtures("current_event_loop")
 class TestShark:
-    def test_shark_init(self):
+    @pytest.mark.asyncio
+    async def test_shark_init(self):
         shark = SocketShark(TEST_CONFIG)
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(shark.prepare())
-        loop.run_until_complete(shark.shutdown())
+        await shark.prepare()
+        await shark.shutdown()
 
 
 class TestSession:
@@ -1995,7 +1985,7 @@ class TestSession:
             if dummy_ping.n_pings < 2:
                 return original_ping(*args, **kwargs)
             else:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 return loop.create_future()
 
         dummy_ping.n_pings = 0
@@ -2532,7 +2522,6 @@ class TestThrottle:
         await shark.shutdown()
 
 
-@pytest.mark.usefixtures("current_event_loop")
 class TestWebsocket:
     """
     Test an actual WebSocket connection.
@@ -2544,7 +2533,8 @@ class TestWebsocket:
             TEST_CONFIG["WS_HOST"], TEST_CONFIG["WS_PORT"]
         )
 
-    def test_websocket(self):
+    @pytest.mark.asyncio
+    async def test_websocket(self):
         shark = SocketShark(TEST_CONFIG)
 
         done = False
@@ -2599,13 +2589,14 @@ class TestWebsocket:
 
             done = True
 
-        shark = SocketShark(TEST_CONFIG)
-        asyncio.ensure_future(task())
-        shark.start()
+        server = asyncio.ensure_future(shark.backend.serve())
+        await task()
+        await server
 
         assert done
 
-    def test_shutdown(self):
+    @pytest.mark.asyncio
+    async def test_shutdown(self):
         """
         Make sure we call unsubscribe callbacks when shutting down.
         """
@@ -2648,8 +2639,9 @@ class TestWebsocket:
             await aiosession.close()
 
         shark = SocketShark(TEST_CONFIG)
-        asyncio.ensure_future(task())
-        shark.start()
+        server = asyncio.ensure_future(shark.backend.serve())
+        await task()
+        await server
         mock_responses.stop()
 
         requests = mock_responses.requests[
@@ -2658,7 +2650,8 @@ class TestWebsocket:
         assert len(requests) == 1
         assert requests[0].kwargs["json"] == {"subscription": "ws_test.hello"}
 
-    def test_shutdown_connections(self):
+    @pytest.mark.asyncio
+    async def test_shutdown_connections(self):
         """
         Make sure we don't allow new WebSocket connections when shutting down.
         """
@@ -2714,9 +2707,9 @@ class TestWebsocket:
             await aiosession.close()
 
         shark = SocketShark(TEST_CONFIG)
-        test_task = asyncio.ensure_future(task())
-        shark.start()
-        test_task.result()  # Raise any exceptions
+        server = asyncio.ensure_future(shark.backend.serve())
+        await task()
+        await server
 
         requests = mock_responses.requests[
             ("POST", URL(conf["on_unsubscribe"]))
@@ -2724,7 +2717,8 @@ class TestWebsocket:
         assert len(requests) == 1
         assert requests[0].kwargs["json"] == {"subscription": "ws_test.hello"}
 
-    def test_ping(self):
+    @pytest.mark.asyncio
+    async def test_ping(self):
         """
         Ensure server sends periodic pings and disconnects timed out clients.
         """
@@ -2760,10 +2754,12 @@ class TestWebsocket:
             asyncio.ensure_future(shark.shutdown())
 
         shark = SocketShark(TEST_CONFIG)
-        asyncio.ensure_future(task())
-        shark.start()
+        server = asyncio.ensure_future(shark.backend.serve())
+        await task()
+        await server
 
-    def test_ping_2(self):
+    @pytest.mark.asyncio
+    async def test_ping_2(self):
         """
         Test message receiving after a fail.
 
@@ -2874,10 +2870,12 @@ class TestWebsocket:
             asyncio.ensure_future(shark.shutdown())
 
         shark = SocketShark(TEST_CONFIG)
-        asyncio.ensure_future(task())
-        shark.start()
+        server = asyncio.ensure_future(shark.backend.serve())
+        await task()
+        await server
 
-    def test_redis_disconnect(self):
+    @pytest.mark.asyncio
+    async def test_redis_disconnect(self):
         """
         Ensure server disconnects clients when Redis connection closes.
         """
@@ -2918,8 +2916,9 @@ class TestWebsocket:
             await aiosession.close()
 
         shark = SocketShark(TEST_CONFIG)
-        asyncio.ensure_future(task())
-        shark.start()
+        server = asyncio.ensure_future(shark.backend.serve())
+        await task()
+        await server
 
 
 class TestRedisConnection:

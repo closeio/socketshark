@@ -80,6 +80,7 @@ class SocketShark:
         self._init_logging()
         self._task: asyncio.Task[None] | None = None
         self._shutdown = False
+        self._stopped = asyncio.Event()
         self.sessions: set[Session] = set()
         self.metrics = Metrics(self)
         self.metrics.initialize()
@@ -201,12 +202,14 @@ class SocketShark:
         if self._task:
             await asyncio.wait([self._task])
             self._task = None
-            asyncio.get_event_loop().stop()
 
         self._cleanup()
 
         self._uninstall_signal_handlers()
         self._shutdown = False
+
+        # Unblock run(), which is awaiting shutdown.
+        self._stopped.set()
 
     async def run_service_receiver(
         self, once: bool = False
@@ -227,10 +230,12 @@ class SocketShark:
         """
         Set up SocketShark signal handlers and run the service receiver.
 
-        Main SocketShark coroutine, invoked by the backend.
+        Main SocketShark coroutine, invoked by the backend. Returns once
+        shutdown has completed.
         """
         self._install_signal_handlers()
         self._task = asyncio.ensure_future(self._run())
+        await self._stopped.wait()
 
     def _install_signal_handlers(self) -> None:
         """
@@ -241,7 +246,7 @@ class SocketShark:
             self.log.info("stop requested")
             asyncio.ensure_future(self.shutdown())
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         loop.add_signal_handler(signal.SIGINT, request_stop)
         loop.add_signal_handler(signal.SIGTERM, request_stop)
 
@@ -249,7 +254,7 @@ class SocketShark:
         """
         Restore default signal handlers.
         """
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         loop.remove_signal_handler(signal.SIGINT)
         loop.remove_signal_handler(signal.SIGTERM)
 
