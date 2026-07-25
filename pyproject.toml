@@ -20,7 +20,7 @@ dependencies = [
     "aioredis>=1,<2",
     "click",
     "structlog",
-    "websockets>=13,<14",
+    "websockets>=13,<17",
 ]
 
 [project.optional-dependencies]
