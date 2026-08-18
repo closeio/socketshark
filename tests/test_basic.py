@@ -117,7 +117,7 @@ def current_event_loop():
     asyncio.set_event_loop(None)
 
 
-class MockClient:  # noqa SIM119
+class MockClient:
     def __init__(self, shark):
         self.log = []
         self.session = Session(shark, self)
@@ -1213,7 +1213,8 @@ class TestSession:
             await asyncio.sleep(0.2)
             mock_responses.assert_called_once()
             await asyncio.sleep(0.2)
-            assert len(list(mock_responses.requests.values())[0]) == 2
+            captured_requests = next(iter(mock_responses.requests.values()))
+            assert len(captured_requests) == 2
 
         await shark.shutdown()
 

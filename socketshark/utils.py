@@ -46,26 +46,26 @@ def _get_rate_limit_wait(
             if 0 <= new_wait <= max_wait:
                 wait = new_wait
             elif new_wait > max_wait:
-                log.warn(
+                log.warning(
                     "rate reset value too high",
                     name=header_name,
                     value=header_value,
                 )
                 wait = max_wait
             else:
-                log.warn(
+                log.warning(
                     "invalid rate reset value",
                     name=header_name,
                     value=header_value,
                 )
         except ValueError:
-            log.warn(
+            log.warning(
                 "invalid rate reset value",
                 name=header_name,
                 value=header_value,
             )
     else:
-        log.warn(
+        log.warning(
             "got a 429 but no rate limit reset header found in response",
         )
     return wait
@@ -81,7 +81,7 @@ def _scrub_url(url: str) -> str:
         # so can't easily use _replace to get rid of password
         # and then call urlunsplit to reconstruct url.
         _, _, hostinfo = url_parts.netloc.rpartition("@")
-        scrubbed_netloc = f"*****:*****@{hostinfo}"  # noqa: E231
+        scrubbed_netloc = f"*****:*****@{hostinfo}"
         scrubbed_url_parts = url_parts._replace(netloc=scrubbed_netloc)
         return urlunsplit(scrubbed_url_parts)
 

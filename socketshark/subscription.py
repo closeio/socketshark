@@ -332,7 +332,7 @@ class Subscription:
         last_throttle = self.throttle_state.get(key)
         now = time.time()
         if last_throttle:
-            ts_last_msg_sent, pending_msg, task = last_throttle
+            ts_last_msg_sent, _, task = last_throttle
             if task:  # We'll update the message and let the task send it.
                 self.throttle_state[key] = (ts_last_msg_sent, data, task)
                 return False
@@ -500,9 +500,8 @@ class Subscription:
         message_data = event.data.get("data")
 
         result = await self.on_message(message_data)
-        if "data" in result:
-            if event:
-                await event.send_ok(result["data"])
+        if "data" in result and event:
+            await event.send_ok(result["data"])
 
     async def cleanup_subscription(self) -> None:
         await self.shark.service_receiver.delete_subscription(
@@ -510,7 +509,7 @@ class Subscription:
         )
 
         for throttle in self.throttle_state.values():
-            ts_last_msg_sent, pending_msg, task = throttle
+            task = throttle[2]
             if task:
                 task.cancel()
 
