@@ -66,14 +66,14 @@ class ServiceReceiver:
                 ping = redis_connection.redis.ping()
                 wait = asyncio.ensure_future(asyncio.sleep(ping_timeout))
 
-                done, pending = await asyncio.wait(
+                _, pending = await asyncio.wait(
                     [ping, wait], return_when=asyncio.FIRST_COMPLETED
                 )
 
                 if ping and ping in pending:
                     # Ping timeout
                     ping.cancel()
-                    self.shark.log.warn("redis ping timeout")
+                    self.shark.log.warning("redis ping timeout")
                     self._stop = True
                     break
 

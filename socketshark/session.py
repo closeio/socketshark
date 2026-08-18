@@ -65,7 +65,7 @@ class Session:
         """
         if not self.active:
             # Event was received while the WebSocket is about to close.
-            self.log.warn("inactive client event ignored", data=data)
+            self.log.warning("inactive client event ignored", data=data)
             return
 
         self.log.debug("client event", data=data)
@@ -104,7 +104,7 @@ class Session:
             return
 
         if "subscription" not in data or "data" not in data:
-            self.log.warn("invalid service event", data=data)
+            self.log.warning("invalid service event", data=data)
             return
 
         subscription_name = data["subscription"]
@@ -122,7 +122,7 @@ class Session:
                     raw_published_at
                 )
             except ValueError:
-                self.log.warn(
+                self.log.warning(
                     "invalid published_at format",
                     published_at=raw_published_at,
                 )
@@ -209,5 +209,5 @@ class Session:
         Force-unsubscribe all subscriptions of the session.
         """
         while self.subscriptions:
-            name, subscription = self.subscriptions.popitem()
+            _, subscription = self.subscriptions.popitem()
             await subscription.force_unsubscribe()

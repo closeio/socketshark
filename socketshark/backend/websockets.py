@@ -36,7 +36,7 @@ class Client:
         # If we haven't received a pong after sleeping for `ping_timeout`,
         # consider the connection broken and close it.
         if not ping.done():
-            self.session.log.warn("ping timeout")
+            self.session.log.warning("ping timeout")
             await self.close()
             return True
 
@@ -80,7 +80,7 @@ class Client:
                     try:
                         data = json.loads(event)
                     except json.decoder.JSONDecodeError:
-                        self.session.log.warn("received invalid json")
+                        self.session.log.warning("received invalid json")
                         await self.send(
                             ClientMessage(
                                 {
@@ -102,7 +102,7 @@ class Client:
         try:
             await self.websocket.send(json.dumps(event))
         except websockets.ConnectionClosed:
-            self.session.log.warn("attempted to send to closed socket")
+            self.session.log.warning("attempted to send to closed socket")
 
     async def close(self) -> None:
         await self.websocket.close()
@@ -143,7 +143,7 @@ class Backend:
             # calling close() but before this callback was executed, close
             # them immediately.
             if self._closed:
-                self.shark.log.warn(
+                self.shark.log.warning(
                     "dropped connection", remote=websocket.remote_address
                 )
                 return
