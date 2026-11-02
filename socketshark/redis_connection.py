@@ -1,5 +1,3 @@
-import asyncio
-
 import aioredis
 from aioredis.pubsub import Receiver
 
@@ -21,7 +19,7 @@ class RedisConnection:
         self.ping_timeout: int = redis_settings["ping_timeout"]
 
     async def connect(self) -> None:
-        self.redis_receiver = Receiver(loop=asyncio.get_event_loop())
+        self.redis_receiver = Receiver()
         self.redis = await aioredis.create_redis(
             (self.host, self.port), db=self.db
         )
