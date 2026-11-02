@@ -136,9 +136,7 @@ class Backend:
         Called by SocketShark to initialize the server, prepare & run.
         """
 
-        async def serve(
-            websocket: websockets.WebSocketServerProtocol, path: str
-        ) -> None:
+        async def serve(websocket: websockets.WebSocketServerProtocol) -> None:
             # If there are any pending connections that were established after
             # calling close() but before this callback was executed, close
             # them immediately.

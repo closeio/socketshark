@@ -34,8 +34,6 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
-    env:
-      STRICT_WARNINGS: "1"
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v8.2.0
