@@ -10,8 +10,6 @@ updates:
     pull-request-branch-name:
       # so it's compatible with docker tags
       separator: "-"
-    assignees:
-      - closeio/communications-backend
     cooldown:
       default-days: 2
       semver-major-days: 14
